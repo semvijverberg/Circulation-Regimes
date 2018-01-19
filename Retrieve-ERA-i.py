@@ -18,11 +18,9 @@ def main():
                         help='grid resolution in format: 2.5/2.5 ')
     args = parser.parse_args()
     sys.stdout.write(retrieve_ERA_i_field(args))
-    # return sys.stdout(retrieve_ERA_i_field(args))
 
 
-def retrieve_ERA_i_field(args):  # startyear=1979, endyear=1980, startmonth=6, endmonth=8,
-    # grid="2,5/2,5", stream="mnth", levellist="285"):
+def retrieve_ERA_i_field(args):
     # !/usr/bin/python
     from ecmwfapi import ECMWFDataServer
     import numpy as np
@@ -46,11 +44,10 @@ def retrieve_ERA_i_field(args):  # startyear=1979, endyear=1980, startmonth=6, e
     # monthly means of individual analysis steps, i.e. 00:00, 06:00, 12:00 etc,
     # download synoptic monthly means by setting stream to "mnth"
     # normal monthly mean, download monthly mean of daily means by setting stream to "moda"
-
-    #    if stream == "mnth":
-    #        time = "00:00:00/06:00:00/12:00:00/18:00:00"
-    #    else:
-    #        time = "00:00:00"
+       if stream == "mnth":
+           time = "00:00:00/06:00:00/12:00:00/18:00:00"
+       else:
+           time = "00:00:00"
 
     server.retrieve({
         "dataset": "interim",
