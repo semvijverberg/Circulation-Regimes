@@ -1,9 +1,10 @@
 import argparse
 import sys
 
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--var_cf_code', type=str, default=54.128/60.128/138.128,
+    parser.add_argument('--var_cf_code', type=str, default=54.128 / 60.128 / 138.128,
                         help="What variable do you want to retrieve, (in ECMWF cf parameter code)")
     parser.add_argument('--startyear', type=int, default=1979,
                         help='start year of time series')
@@ -13,13 +14,15 @@ def main():
                         help='start month of time series')
     parser.add_argument('--endmonth', type=int, default=8,
                         help='end month of time series')
+    parser.add_argument('--grid', type=str, default=2.5/2.5,
+                        help='grid resolution in format: 2.5/2.5 ')
     args = parser.parse_args()
     sys.stdout.write(retrieve_ERA_i_field(args))
     # return sys.stdout(retrieve_ERA_i_field(args))
 
 
-def retrieve_ERA_i_field(args): #startyear=1979, endyear=1980, startmonth=6, endmonth=8,
-                         # grid="2,5/2,5", stream="mnth", levellist="285"):
+def retrieve_ERA_i_field(args):  # startyear=1979, endyear=1980, startmonth=6, endmonth=8,
+    # grid="2,5/2,5", stream="mnth", levellist="285"):
     # !/usr/bin/python
     from ecmwfapi import ECMWFDataServer
     import numpy as np
@@ -28,8 +31,6 @@ def retrieve_ERA_i_field(args): #startyear=1979, endyear=1980, startmonth=6, end
     server = ECMWFDataServer()
 
     base_path = "/Users/semvijverberg/surfdrive/Output_ERA/"
-    startyear = args.startyear ; endyear = 1980
-    grid = "2.5/2.5"
     start = datetime(args.startyear, args.startmonth, 1)
     end = datetime(args.endyear, args.endmonth, 1)
     datelist = [start.strftime('%Y-%m-%d')]
@@ -46,20 +47,20 @@ def retrieve_ERA_i_field(args): #startyear=1979, endyear=1980, startmonth=6, end
     # download synoptic monthly means by setting stream to "mnth"
     # normal monthly mean, download monthly mean of daily means by setting stream to "moda"
 
-#    if stream == "mnth":
-#        time = "00:00:00/06:00:00/12:00:00/18:00:00"
-#    else:
-#        time = "00:00:00"
+    #    if stream == "mnth":
+    #        time = "00:00:00/06:00:00/12:00:00/18:00:00"
+    #    else:
+    #        time = "00:00:00"
 
     server.retrieve({
         "dataset": "interim",
         "class": "ei",
         "date": datestring,
         "expver": "1",
-        "grid": grid,
+        "grid": args.grid,
         "levelist": "285",
         "levtype": "pt",  # potential temperature (Isentrope)
-        "param": "54.128/60.128/138.128",  # Potential vorticity; Pressure; Relative Vorticity
+        "param": args.var_cf_code,  # Potential vorticity; Pressure; Relative Vorticity
         "stream": "mnth",
         "time": "00:00:00/06:00:00/12:00:00/18:00:00",
         "type": "an",
