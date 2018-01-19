@@ -64,7 +64,7 @@ def retrieve_ERA_i_field(args):
         "format": "netcdf",
         "target": os.path.join(base_path, "PV-pressure-RelVort_{}-{}.nc".format(args.startyear, args.endyear)),
     })
-    return "You have downloaded"
+    return "You have downloaded variables{}".format(args.var_cf_code)
 
 
 if __name__ == '__main__':
