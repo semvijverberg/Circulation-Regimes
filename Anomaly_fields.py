@@ -33,19 +33,28 @@ marray[0,0].shape
 marray[0]
 marray.dims
 
-# index by coordinate label
+# index by coordinate label (in xarray jargon: coordinate == positional label)
 # retrieve values on lat/lon grid on timestep 0 and 1 with coordinates
-# in other words, retrieving array values based on values along dimension
+# in other words, retrieving array element values based on values (== label) along dimension
 marray[0].loc['1979-06-01':'1979-07-01'].values
 marray['time'].loc['1979-06-01':'1980-06-01'].values
 
+
 marray['time'] # gives values of dimension
+marray.coords['time'] # gives values of dimension
 marray['pv'].values #<- this is not a dimension, so output = 0
 
 # or pick out values based on integer:
 marray.isel(time=2)
-# use slicing ( pick 0 up to 2 and slice array )
-marray.isel(time=slice(2))
+# use slicing : cut data in half up to that point ( pick 0 up to 2 and slice array )
+marray.isel(time=slice(2)).values
+marray.sel(time=slice('1979-06-01','1980-06-01'))
+# look up values along latitude
+marray.sel(latitude=[50,52.5])
+# you can also look up nearest:
+marray.sel(latitude=[51], method='nearest')
+# and even set up tolerance limits:
+marray.sel(latitude=[51], method='nearest', tolerance=1)
 
 
 
