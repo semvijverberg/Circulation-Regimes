@@ -4,7 +4,8 @@ import numpy as np
 from netCDF4 import Dataset
 import os
 import xarray as xr
-
+import pandas as pd
+import seaborn as sns # pandas aware plotting library
 
 
 global base_path
@@ -56,18 +57,52 @@ marray.sel(latitude=[51], method='nearest')
 # and even set up tolerance limits:
 marray.sel(latitude=[51], method='nearest', tolerance=1)
 
-
-
-# retrieve axis:
+# retrieve coordinates of axis / dimension:
 marray.coords['latitude']
 marray['latitude'] # gives time axis
 marray['time']
 
+# --------------------------------------- #
+# COMPUTATIONS
+# --------------------------------------- #
+marray.mean()
+# mean over certain axis / dimension
+marray.mean(dim='time')
+# add labels to marray to later use as a filter
+labels = xr.DataArray(['1979', '1979', '1979', '1979', '1980', '1980', '1980' ], [marray.coords['time']], name='labels')
+# labels are now linked to coordinates along time dimension in marray
+labels
+# now take mean over labels
+marray.groupby(labels).mean('time')
+# you can also do specific calculations based on grouplabel
+# the lambda lets you build an anonamous function
+marray.groupby(labels).apply(lambda pv: pv - pv.min())
+
+
+# --------------------------------------- #
+# DATA SETS
+# --------------------------------------- #
+# you can use dataset as dictionairys for mutliple xarrays:
+newarray = marray.groupby(labels).apply(lambda pv: pv - pv.min())
+dataset = xr.Dataset({'ctrl' : marray, 'adj' : newarray})
+dataset
+# you can write xarrays as netcdf
+dataset.to_netcdf(os.path.join(base_path, "xarray-to-netcdf.nc"))
+# calculate climatolagy
+climatology = marray.groupby('time.month').mean('time')
+# calculate anomaly
+anomalies = marray.groupby('time.month') - climatology
+
+# plotting directly from dataset (via dataframe from pandas)
+dataset = xr.Dataset({'climatology' : climatology.mean('longitude'), 'anomalies' : anomalies.mean('longitude')})
+# make 2D plottable dataframe
+dataset.to_dataframe().plot()
+
+
+dataset.mean(dim='longitude')
 
 
 
-
-marray.loc()
 
 
 
