@@ -1,8 +1,9 @@
-import argparse
-import sys
+
 
 
 def main():
+    import argparse
+    import sys
     parser = argparse.ArgumentParser()
     parser.add_argument('--var_cf_code', type=str, default="54.128",
                         help="What variable do you want to retrieve, (in ECMWF cf parameter code)")
@@ -18,8 +19,11 @@ def main():
                         help='grid resolution in format: 2.5/2.5 ')
     parser.add_argument('--stream', type=str, default='moda',
                         help='stream either mnth (monthly mean of timesteps) or moda (monthly mean of daily means) ')
+    parser.print_help()
     args = parser.parse_args()
+    print(args)
     sys.stdout.write(retrieve_ERA_i_field(args)[1])
+    return args
 
 
 def retrieve_ERA_i_field(args):
@@ -71,3 +75,5 @@ def retrieve_ERA_i_field(args):
 
 if __name__ == '__main__':
     main()
+
+

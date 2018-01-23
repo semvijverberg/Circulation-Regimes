@@ -82,31 +82,25 @@ marray.groupby(labels).apply(lambda pv: pv - pv.min())
 # --------------------------------------- #
 # DATA SETS
 # --------------------------------------- #
-# you can use dataset as dictionairys for mutliple xarrays:
-newarray = marray.groupby(labels).apply(lambda pv: pv - pv.min())
-dataset = xr.Dataset({'ctrl' : marray, 'adj' : newarray})
-dataset
 # you can write xarrays as netcdf
-dataset.to_netcdf(os.path.join(base_path, "xarray-to-netcdf.nc"))
-# calculate climatolagy
-climatology = marray.groupby('time.month').mean('time')
-# calculate anomaly
-anomalies = marray.groupby('time.month') - climatology
 
-# plotting directly from dataset (via dataframe from pandas)
-dataset = xr.Dataset({'climatology' : climatology.mean('longitude'), 'anomalies' : anomalies.mean('longitude')})
+marray.to_netcdf(os.path.join(base_path, "xarray-to-netcdf.nc"))
 # make 2D plottable dataframe
-dataset.to_dataframe().plot()
+# selecting only mid-laitudes
+NH_latitudes = marray.sel(latitude=np.arange(30,60), method='nearest')
+# mean over NH mid-latitude
+NH_mean = NH_latitudes.mean(dim=['latitude', 'longitude'])[0]
+# calculate climatolagy
+climatology = NH_mean.groupby('time.month').mean('time')
+# For plotting with pandas it needs an name (label)
+climatology.to_dataframe(name='climatology').plot()
+# calculate anomaly
+anomalies = NH_mean.groupby('time.month') - climatology
+anomalies.to_dataframe(name='anomalies').plot(x='month')
+# deleting month axis
+anomalies.coords.__delitem__('month')
+# plotting directly from xarray (via dataframe from pandas)
+anomalies.to_dataframe(name='anomalies').plot()
 
 
-dataset.mean(dim='longitude')
 
-
-
-
-
-
-def calc_anomaly(filename):
-    # load in file
-    Dataset(filename, mode='r')
-    # calculate climatology
