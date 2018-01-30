@@ -59,7 +59,6 @@ def retrieve_ERA_i_field(args):
     #     "dataset"   :   "interim",
     #     "class"     :   "ei",
     #     "date"      :   datestring,
-    #     "expver"    :   "1",
     #     "grid"      :   args.grid,
     #     "levelist"  :   "285",
     #     "levtype"   :   "pt",  # potential temperature (Isentrope)
@@ -75,7 +74,7 @@ def retrieve_ERA_i_field(args):
     return filename, " You have downloaded variable {} \n stream is set to {} \n all dates: {} \n".format(args.var_cf_code, args.stream, datelist)
 
 output = main()
-x = 2
+
 # if __name__ == '__main__':
 #     main()
 
