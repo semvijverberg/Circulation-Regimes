@@ -55,20 +55,20 @@ def retrieve_ERA_i_field(args):
     else:
         time = "00:00:00"
 
-    # server.retrieve({
-    #     "dataset"   :   "interim",
-    #     "class"     :   "ei",
-    #     "date"      :   datestring,
-    #     "grid"      :   args.grid,
-    #     "levelist"  :   "285",
-    #     "levtype"   :   "pt",  # potential temperature (Isentrope)
-    #     "param"     :   args.var_cf_code,  # Potential vorticity; Pressure; Relative Vorticity
-    #     "stream"    :   args.stream,
-    #     "time"      :   time,
-    #     "type"      :   "an",
-    #     "format"    :   "netcdf",
-    #     "target"    :   os.path.join(base_path, "{}_{}-{}.nc".format(args.var_cf_code, args.startyear, args.endyear)),
-    # })
+    server.retrieve({
+        "dataset"   :   "interim",
+        "class"     :   "ei",
+        "date"      :   datestring,
+        "grid"      :   args.grid,
+        "levelist"  :   "285",
+        "levtype"   :   "pt",  # potential temperature (Isentrope)
+        "param"     :   args.var_cf_code,  # Potential vorticity; Pressure; Relative Vorticity
+        "stream"    :   args.stream,
+        "time"      :   time,
+        "type"      :   "an",
+        "format"    :   "netcdf",
+        "target"    :   os.path.join(base_path, "{}_{}-{}.nc".format(args.var_cf_code, args.startyear, args.endyear)),
+    })
     filename = os.path.join(base_path, "PV-pressure-RelVort_{}-{}.nc".format(args.var_cf_code, args.startyear, args.endyear))
     print 'this fu'
     return filename, " You have downloaded variable {} \n stream is set to {} \n all dates: {} \n".format(args.var_cf_code, args.stream, datelist)

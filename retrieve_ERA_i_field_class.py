@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import xarray as xr
+import numpy as np
 import os
 
 class Variable:
@@ -96,7 +97,7 @@ temperature = Variable(name='2 metre temperature', levtype='sfc', lvllist=0, var
                        startyear=1979, endyear=1979, startmonth=6, endmonth=8, grid='2,5/2,5', stream='moda')
 
 
-retrieve_ERA_i_field(temperature)
+# retrieve_ERA_i_field(temperature)
 
 def calc_anomaly(cls, decode_cf=True, decode_coords=True):
 
@@ -110,12 +111,28 @@ def calc_anomaly(cls, decode_cf=True, decode_coords=True):
     print marray.dims
     clim = marray.mean(dim='time')
     anom = marray - clim
-    return clim, anom
+    upperquan = marray.quantile(0.95, dim="time", keep_attrs=True)
+    return clim, anom, upperquan
 
 
 
-clim, anom = calc_anomaly(temperature)
+clim, anom, upperquan = calc_anomaly(temperature)
 
-clim
+# def plot_2D(cls):
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+clim, anom, upperquan = calc_anomaly(temperature)
+ax = plt.axes(projection=ccrs.Orthographic(-80, 35))
+plt.contourf(np.squeeze(clim))
+plt.contourf(np.mean(np.squeeze(anom),axis=0))
+ax.set_global() ; ax.coastlines
+
+
+
+
+
+
+
+
 
 
