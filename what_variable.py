@@ -1,8 +1,7 @@
 
 
-from Variable.datetime import Variable.datetime, timedelta
-class Variable:
 
+class Variable:
     """Levtypes: \n surface  :   sfc \n model level  :   ml (1 to 137) \n pressure levels (1000, 850.. etc)
     :   pl \n isentropic level    :   pt
     \n
@@ -38,7 +37,7 @@ class Variable:
         datelist = [start.strftime('%Y-%m-%d')]
         while start <= end:
             if start.month < end.month:
-                start += timedelta(days=31)
+                start += Variable.timedelta(days=31)
                 datelist.append(Variable.datetime(start.year, start.month, 1).strftime('%Y-%m-%d'))
             else:
                 start = Variable.datetime(start.year+1, self.startmonth-1, 1)

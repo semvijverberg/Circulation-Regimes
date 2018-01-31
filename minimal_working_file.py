@@ -3,10 +3,11 @@ from what_variable import Variable
 
 # assign instance
 temperature = Variable(name='2 metre temperature', levtype='sfc', lvllist=0, var_cf_code='167.128',
-                       startyear=1979, endyear=1979, startmonth=6, endmonth=8, grid='2,5/2,5', stream='mnth')
+                       startyear=1979, endyear=1979, startmonth=6, endmonth=8, grid='2.5/2.5', stream='mnth')
 cls = temperature
 file_path = os.path.join(cls.base_path, cls.filename)
 datestring = "/".join(cls.datelist)
+datestring = datestring.replace('-','')
 if cls.stream == "mnth" or cls.stream == "oper":
     time = "00:00:00/06:00:00/12:00:00/18:00:00"
 elif cls.stream == "moda":
