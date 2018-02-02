@@ -18,6 +18,7 @@ def retrieve_ERA_i_field(cls):
         print "stream is not available"
 
     if os.path.isfile(path=file_path) == True:
+        print "You have already download the variable {} from {} to {} on grid {} ".format(cls.name, cls.startyear, cls.endyear)
         pass
     else:
         server.retrieve({
@@ -35,8 +36,9 @@ def retrieve_ERA_i_field(cls):
             "format"    :   "netcdf",
             "target"    :   file_path,
             })
-    return file_path, " You have downloaded variable {} \n stream is set to {} \n all dates: {} \n".format \
-        (cls.var_cf_code, cls.stream, datestring)
+        print " You have downloaded variable {} \n stream is set to {} \n all dates: {} \n".format \
+            (cls.name, cls.stream, datestring)
+    return file_path
 
 
 

@@ -40,7 +40,7 @@ class Variable:
                 start += Variable.timedelta(days=31)
                 datelist.append(Variable.datetime(start.year, start.month, 1).strftime('%Y-%m-%d'))
             else:
-                start = Variable.datetime(start.year+1, self.startmonth-1, 1)
+                start = Variable.datetime(start.year+1, self.startmonth, 1)
                 datelist.append(Variable.datetime(start.year, start.month, 1).strftime('%Y-%m-%d'))
         self.datelist = datelist
 
@@ -48,3 +48,4 @@ class Variable:
         filename = filename.replace('/', 'x')
         self.filename = filename +'.nc'
         print self.filename
+
