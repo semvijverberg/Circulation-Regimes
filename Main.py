@@ -1,10 +1,16 @@
-from what_variable import Variable
-from retrieve_ERA_i_field_class import retrieve_ERA_i_field
+import what_variable
+import retrieve_ERA_i_field_class
+if Variable is not what_variable.Variable:
+    Variable = reload(Variable)
+if retrieve_ERA_i_field is not retrieve_ERA_i_field_class.retrieve_ERA_i_field:
+    retrieve_ERA_i_field = reload(retrieve_ERA_i_field_class)
+
+
 
 
 # assign instance
 temperature = Variable(name='2 metre temperature', levtype='sfc', lvllist=0, var_cf_code='167.128',
-                       startyear=1979, endyear=1979, startmonth=6, endmonth=8, grid='2.5/2.5', stream='mnth')
+                       startyear=1979, endyear=2017, startmonth=6, endmonth=8, grid='2.5/2.5', stream='mnth')
 
 # Download variable
 retrieve_ERA_i_field(temperature)
@@ -23,29 +29,30 @@ def calc_anomaly(cls, decode_cf=True, decode_coords=True):
 
     print "dimensions {}".format(cls.name, marray.shape)
     print marray.dims
-    clim = marray.mean(dim='time')
+    clim = marray.mean(dim='time', attrs=True)
     anom = marray - clim
-    upperquan = marray.quantile(0.95, dim="time", keep_attrs=True)
+    upperquan = marray.quantile(0.95, dim="time")
     return clim, anom, upperquan
 
 
 
 clim, anom, upperquan = calc_anomaly(temperature)
 
-
-
-latcorners = nc.variables['lat'][:]
-loncorners = -nc.variables['lon'][:]
-lon_0 = -nc.variables['true_lon'].getValue()
-lat_0 = nc.variables['true_lat'].getValue()
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
+marray = clim
+latcorners = marray['latitude'].values
+loncorners = marray['longitude'].values
+lon_0 = 0
+lat_0 = 0
 # create figure and axes instances
 fig = plt.figure(figsize=(8,8))
 ax = fig.add_axes([0.1,0.1,0.8,0.8])
 # create polar stereographic Basemap instance.
 m = Basemap(projection='stere',lon_0=lon_0,lat_0=90.,lat_ts=lat_0,\
-            llcrnrlat=latcorners[0],urcrnrlat=latcorners[2],\
-            llcrnrlon=loncorners[0],urcrnrlon=loncorners[2],\
-            rsphere=6371200.,resolution='l',area_thresh=10000)
+            llcrnrlat=latcorners[0],urcrnrlat=latcorners[-1],\
+            llcrnrlon=loncorners[0],urcrnrlon=loncorners[-1])#,\
+            # rsphere=6371200.,resolution='l')
 # draw coastlines, state and country boundaries, edge of map.
 m.drawcoastlines()
 m.drawstates()

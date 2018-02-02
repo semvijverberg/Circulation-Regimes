@@ -1,9 +1,9 @@
 def retrieve_ERA_i_field(cls):
     import os
-    print 'you are retrieving the following dataset: \n'
-    print cls.__dict__
+    # print 'you are retrieving the following dataset: \n'
+    # print cls.__dict__
     file_path = os.path.join(cls.base_path, cls.filename)
-    print file_path
+
     datestring = "/".join(cls.datelist)
     # !/usr/bin/python
     from ecmwfapi import ECMWFDataServer
@@ -18,9 +18,13 @@ def retrieve_ERA_i_field(cls):
         print "stream is not available"
 
     if os.path.isfile(path=file_path) == True:
-        print "You have already download the variable {} from {} to {} on grid {} ".format(cls.name, cls.startyear, cls.endyear)
+        print "You have already download the variable {} from {} to {} on grid {} ".format(cls.name, cls.startyear, cls.endyear, cls.grid)
+        print "\n to path: \n \n {}".format(file_path)
         pass
     else:
+        print " You WILL download variable {} \n stream is set to {} \n all dates: {} \n".format \
+            (cls.name, cls.stream, datestring)
+        print "\n to path: \n \n {}".format(file_path)
         server.retrieve({
             "dataset"   :   "interim",
             "class"     :   "ei",
@@ -36,15 +40,5 @@ def retrieve_ERA_i_field(cls):
             "format"    :   "netcdf",
             "target"    :   file_path,
             })
-        print " You have downloaded variable {} \n stream is set to {} \n all dates: {} \n".format \
-            (cls.name, cls.stream, datestring)
-    return file_path
 
-
-
-
-
-
-
-
-
+    return
