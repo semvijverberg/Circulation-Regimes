@@ -1,15 +1,10 @@
 def retrieve_ERA_i_field(cls):
     import os
-    # print 'you are retrieving the following dataset: \n'
-    # print cls.__dict__
-    file_path = os.path.join(cls.base_path, cls.filename)
-
-    datestring = "/".join(cls.datelist)
-    # !/usr/bin/python
     from ecmwfapi import ECMWFDataServer
     import os
     server = ECMWFDataServer()
-
+    file_path = os.path.join(cls.base_path, cls.filename)
+    datestring = "/".join(cls.datelist)
     if cls.stream == "mnth" or cls.stream == "oper":
         time = "00:00:00/06:00:00/12:00:00/18:00:00"
     elif cls.stream == "moda":
@@ -20,11 +15,13 @@ def retrieve_ERA_i_field(cls):
     if os.path.isfile(path=file_path) == True:
         print "You have already download the variable {} from {} to {} on grid {} ".format(cls.name, cls.startyear, cls.endyear, cls.grid)
         print "\n to path: \n \n {}".format(file_path)
+        print "\n \n a minor change"
         pass
     else:
         print " You WILL download variable {} \n stream is set to {} \n all dates: {} \n".format \
             (cls.name, cls.stream, datestring)
         print "\n to path: \n \n {}".format(file_path)
+        # !/usr/bin/python
         server.retrieve({
             "dataset"   :   "interim",
             "class"     :   "ei",
