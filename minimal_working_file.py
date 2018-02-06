@@ -25,7 +25,7 @@ gs = gridspec.GridSpec(1, 1)
 # ax = plt.axes(projection=proj)
 ax = plt.subplot(gs[0,0], projection=proj)
 ax.add_feature(cfeat.COASTLINE)
-lons 
+
 lons, lats = np.meshgrid(data['longitude'].values, data['latitude'].values)
 map = ax.pcolormesh(lons, lats, plottable, transform=ccrs.PlateCarree())
 gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
