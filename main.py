@@ -2,11 +2,11 @@
 %load_ext autoreload
 %autoreload 2
 import what_variable
-import retrieve_ERA_i_field_class
+import retrieve_ERA_i
 import computations
 import numpy as np
 Variable = what_variable.Variable
-retrieve_ERA_i_field = retrieve_ERA_i_field_class.retrieve_ERA_i_field
+retrieve_ERA_i_field = retrieve_ERA_i.retrieve_ERA_i_field
 
 
 # assign instance
@@ -54,7 +54,6 @@ plottable = np.squeeze(data)
 # map = ax.contourf(longitude, latitude, plottable, transform=ccrs.PlateCarree())
 map = ax.pcolormesh(lons, lats, plottable, transform=ccrs.PlateCarree())
 plt.colorbar(map, ax=ax)
-ax.gridlines(color="black", linestyle="dotted")
 gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
 # cartgrid.Gridliner(ax, ccrs.PlateCarree(), draw_labels=True)
 plt.show()
