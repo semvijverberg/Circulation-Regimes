@@ -47,5 +47,5 @@ class Variable:
         filename = '{}_{}-{}_{}_{}'.format(self.name, self.startyear, self.endyear, self.startmonth, self.endmonth).replace(' ', '_')
         filename = filename.replace('/', 'x')
         self.filename = filename +'.nc'
-        print self.filename
+        print(self.filename)
 

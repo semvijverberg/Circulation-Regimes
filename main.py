@@ -1,57 +1,112 @@
+
+%load_ext autoreload
+%autoreload 2
 import what_variable
 import retrieve_ERA_i_field_class
+import computations
+import numpy as np
 Variable = what_variable.Variable
 retrieve_ERA_i_field = retrieve_ERA_i_field_class.retrieve_ERA_i_field
-if Variable is not what_variable.Variable:
-    Variable = reload(Variable)
-if retrieve_ERA_i_field is not retrieve_ERA_i_field_class.retrieve_ERA_i_field:
-    print "reloaded"
-    retrieve_ERA_i_field = reload(retrieve_ERA_i_field_class)
-
-
 
 
 # assign instance
 temperature = Variable(name='2 metre temperature', levtype='sfc', lvllist=0, var_cf_code='167.128',
-                       startyear=1979, endyear=2017, startmonth=6, endmonth=8, grid='2.5/2.5', stream='mnth')
-
+                       startyear=1979, endyear=1979, startmonth=6, endmonth=8, grid='2.5/2.5', stream='mnth')
 # Download variable
 retrieve_ERA_i_field(temperature)
-
-
-
 # retrieve_ERA_i_field(temperature)
-
-def calc_anomaly(cls, decode_cf=True, decode_coords=True):
-    import xarray as xr
-    import os
-    # load in file
-    file_path = os.path.join(cls.base_path, cls.filename)
-    ncdf = xr.open_dataset(file_path, decode_cf=True, decode_coords=True)
-    marray = ncdf.to_array(file_path).rename(({file_path: cls.name}))
-
-    print "dimensions {}".format(cls.name, marray.shape)
-    print marray.dims
-    clim = marray.mean(dim='time', attrs=True)
-    anom = marray - clim
-    upperquan = marray.quantile(0.95, dim="time")
-    return clim, anom, upperquan
+clim, anom, upperquan = computations.calc_anomaly(cls=temperature)
 
 
 
-clim, anom, upperquan = calc_anomaly(temperature)
+# def PlateCarree(data, cls):
 
+# proj = ccrs.Mollweide()
+import cartopy.crs as ccrs
+import cartopy.feature as cfeat
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
-from mpl_toolkits.basemap import Basemap
+import cartopy.mpl.gridliner as cartgrid
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+
 
 
 data = clim
-m = Basemap(projection='mill')
-m.drawcoastlines()
-m.fillcontinents()
-plt.title('test')
-cs = m.contourf(x,y,data,clevs,cmap=cm.s3pcpn)
+proj = ccrs.PlateCarree()
+fig = plt.figure(figsize=(10,8))
+gs = gridspec.GridSpec(1, 1)
+# ax = plt.axes(projection=proj)
+ax = plt.subplot(gs[0,0], projection=proj)
+ax.add_feature(cfeat.COASTLINE)
+# ax.add_feature(cfeat.LAND)
+# ax.add_feature(cfeat.OCEAN)
+# ax.add_feature(cfeat.LAKES, alpha=0.5)
+ax.add_feature(cfeat.BORDERS, linestyle=':')
+ax.set_extent({-40,40, 20, 50}) # lon west, lon east, lat north, lat south.
+state_borders = cfeat.NaturalEarthFeature(category='cultural', name='admin_1_states_provinces_lakes',
+                                          scale='50m', facecolor='none')
+ax.add_feature(state_borders, linestyle='dotted', edgecolor='black')
+ax.background_img(name='ne_shaded')
+longitude = data['longitude'].values
+latitude = data['latitude'].values
+lons, lats = np.meshgrid(data['longitude'].values, data['latitude'].values)
+plottable = np.squeeze(data)
+# map = ax.contourf(longitude, latitude, plottable, transform=ccrs.PlateCarree())
+map = ax.pcolormesh(lons, lats, plottable, transform=ccrs.PlateCarree())
+plt.colorbar(map, ax=ax)
+ax.gridlines(color="black", linestyle="dotted")
+gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
+# cartgrid.Gridliner(ax, ccrs.PlateCarree(), draw_labels=True)
 plt.show()
+
+
+
+
+from mpl_toolkits.basemap import Basemap
+import matplotlib.gridspec as gridspec
+
+
+data = np.squeeze(clim)
+# m = Basemap(projection='mill') # 'mill works'
+# # m = Basemap(projection='robin', lon_0=0, lat_0=0) # 'robin works'
+# # m = Basemap(projection='nplaea',boundinglat=10,lon_0=270,resolution='l')
+# m.drawcoastlines()
+# # m.fillcontinents()
+# plt.title('test')
+# # latitude = marray['latitude'].values
+# # longitude = marray['longitude'].values
+# lons, lats = np.meshgrid(data['longitude'].values, data['latitude'].values)
+# cs = m.pcolormesh(lons,lats,data, latlon=True)
+# plt.show()
+
+def LamberConformal(data, cls):
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeat
+    import matplotlib.gridspec as gridspec
+    fig = plt.figure(figsize=(10,8))
+    gs = gridspec.GridSpec(1, 1)
+    ax = plt.subplot(gs[0,0], projection=ccrs.LambertConformal())
+    ax.add_feature(cfeat.COASTLINE)
+    # ax.add_feature(cfeat.LAND)
+    # ax.add_feature(cfeat.OCEAN)
+    # ax.add_feature(cfeat.LAKES, alpha=0.5)
+    ax.add_feature(cfeat.BORDERS, linestyle=':')
+    # ax.set_extent({-120,-70, 20, 50}) # lon west, lon east, lat north, lat south.
+    state_borders = cfeat.NaturalEarthFeature(category='cultural', name='admin_1_states_provinces_lakes',
+                                              scale='50m', facecolor='none')
+    ax.add_feature(state_borders, linestyle='dotted', edgecolor='black')
+    longitude = data['longitude'].values-180
+    latitude = data['latitude'].values
+    lons, lats = np.meshgrid(data['longitude'].values, data['latitude'].values)
+    # ax.contourf(longitude,latitude,data, 60, transform=ccrs.PlateCarree())
+    map = ax.contourf(lons ,lats ,np.squeeze(data), transform=ccrs.PlateCarree())
+    plt.colorbar(map, ax=ax )
+    plt.show()
+LamberConformal(clim-273.15, temperature)
+
+
+
+
 
 
 
@@ -123,3 +178,4 @@ plt.show()
 # # ax.set_global() ; ax.coastlines
 #
 #
+exit()
