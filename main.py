@@ -1,5 +1,3 @@
-
-
 import what_variable
 import retrieve_ERA_i
 import computations
