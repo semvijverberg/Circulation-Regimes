@@ -58,7 +58,6 @@ PlateCarree(anom.sel(time=anom['time'][0]), temperature)
 
 
 
-
 def LamberConformal(data, cls):
     import cartopy.crs as ccrs
     import cartopy.feature as cfeat
