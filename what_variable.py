@@ -44,8 +44,8 @@ class Variable:
                 datelist.append(Variable.datetime(start.year, start.month, 1).strftime('%Y-%m-%d'))
         self.datelist = datelist
 
-        filename = '{}_{}-{}_{}_{}'.format(self.name, self.startyear, self.endyear, self.startmonth, self.endmonth).replace(' ', '_')
+        filename = '{}_{}-{}_{}_{}_{}'.format(self.name, self.startyear, self.endyear, self.startmonth, self.endmonth, self.stream).replace(' ', '_')
         filename = filename.replace('/', 'x')
         self.filename = filename +'.nc'
-        print(self.filename)
+        print("Variable function selected {} \n".format(self.filename))
 

@@ -17,8 +17,7 @@ def calc_anomaly(cls, decode_cf=True, decode_coords=True):
     ncdf = xr.open_dataset(file_path, decode_cf=True, decode_coords=True)
     marray = ncdf.to_array(file_path).rename(({file_path: cls.name}))
 
-    print("dimensions {}".format(cls.name, marray.shape))
-    print(marray.dims)
+    print("calc_anomaly called for {}".format(cls.name, marray.shape))
     clim = marray.mean(dim='time')
     anom = marray - clim
     upperquan = marray.quantile(0.95, dim="time")

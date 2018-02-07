@@ -14,12 +14,12 @@ def retrieve_ERA_i_field(cls):
 
     if os.path.isfile(path=file_path) == True:
         print("You have already download the variable {} from {} to {} on grid {} ".format(cls.name, cls.startyear, cls.endyear, cls.grid))
-        print("\n to path: \n \n {}".format(file_path))
+        print("\n to path: {} \n ".format(file_path))
         pass
     else:
         print(" You WILL download variable {} \n stream is set to {} \n all dates: {} \n".format \
             (cls.name, cls.stream, datestring))
-        print("\n to path: \n \n {}".format(file_path))
+        print("\n to path: \n \n {} \n \n".format(file_path))
         # !/usr/bin/python
         server.retrieve({
             "dataset"   :   "interim",
