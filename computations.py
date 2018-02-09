@@ -22,3 +22,9 @@ def calc_anomaly(cls, decode_cf=True, decode_coords=True):
     anom = marray - clim
     upperquan = marray.quantile(0.95, dim="time")
     return clim, anom, upperquan
+
+def group_time(array, timestep):
+
+    groups = array.groupby('time.' + str(timestep))
+
+    return
