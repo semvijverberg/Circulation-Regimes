@@ -15,7 +15,6 @@ Dataset(filename, mode='r')
 
 ncdf = xr.open_dataset(filename, decode_cf=True, decode_coords=True)
 ncdf.data_vars
-dataframe = ncdf.to_dataframe()
 marray    = ncdf.to_array(filename)
 marray = marray.rename({filename:'pv'})
 marray

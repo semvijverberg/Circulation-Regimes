@@ -16,6 +16,7 @@ retrieve_ERA_i_field(temperature)
 
 clim, anom, upperquan = computations.calc_anomaly(cls=temperature)
 
+cls = temperature
 from datetime import datetime, timedelta
 
 
