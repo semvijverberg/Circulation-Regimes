@@ -28,17 +28,14 @@ def calc_anomaly(cls, decode_cf=True, decode_coords=True):
     months_group = np.tile(months, len(marray['time.year'])/steps_per_year)
     labels = xr.DataArray(months_group, [marray.coords['time']], name='labels')
 
-    clim = np.squeeze(marray.groupby(labels).mean('time'))
+    clim = marray.groupby(labels).mean('time')
     clim = clim.rename({'labels': 'time'})
-    anom = marray - clim
-    upperquan = marray.quantile(0.95, dim="time")
+
+    anom = marray - np.tile(clim,(1,(cls.endyear+1-cls.startyear),1,1))
+    upperquan = anom.quantile(0.95, dim="time")
+
     return clim, anom, upperquan
 
-def group_time(array, timestep):
-
-    groups = array.groupby('time.' + str(timestep))
-
-    return
 
 
 # clim = xr.DataArray(np.zeros([steps_per_year, len(marray['latitude']), len(marray['longitude'])]), dims=('time', 'latitude', 'longitude'), coords=[months, marray['latitude'].values,marray['longitude'].values])

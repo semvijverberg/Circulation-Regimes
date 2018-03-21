@@ -30,16 +30,16 @@ def PlateCarree(data, cls, west_lon=-30, east_lon=40, south_lat=35, north_lat=65
     import matplotlib.pyplot as plt
     import matplotlib.gridspec as gridspec
     import matplotlib.colors as colors
-    if len(clim['time']) < 4:
+    if len(data['time']) < 4:
         fig = plt.figure(figsize=(10, 8))
         pass
     else:
         "select less time steps to plot"
-    for i in clim['time'].values:
-        rows = 2 if len(clim['time']) / 2. > 1 else 1
-        columns = int(len(clim['time'])/row + len(clim['time']) % float(row))
+    for i in data['time'].values:
+        rows = 2 if len(data['time']) / 2. > 1 else 1
+        columns = int(len(data['time'])/rows + len(data['time']) % float(rows))
         gs = gridspec.GridSpec(rows, columns)
-        fig_grid = np.concatenate([clim['time'].values[::-1], np.array([0])]) if len(clim['time']) % float(row) != 0 else clim['time'].values
+        fig_grid = np.concatenate([data['time'].values[::-1], np.array([0])]) if len(data['time']) % float(rows) != 0 else data['time'].values
         r,c = np.where(fig_grid.reshape((gs._nrows,gs._ncols)) == i)
 
         import cartopy.mpl.gridliner as cartgrid
@@ -65,9 +65,11 @@ def PlateCarree(data, cls, west_lon=-30, east_lon=40, south_lat=35, north_lat=65
         gl.ylabels_right= False ; gl.yformatter = LATITUDE_FORMATTER
 
 
-PlateCarree(clim-273, temperature)
+# PlateCarree(clim-273, temperature)
+data = anom.isel(time=np.array(np.where(anom['time.year']==1980)).reshape(3))
 
-PlateCarree(anom.sel(time=anom['time'][0]), temperature)
+PlateCarree(data, temperature)
+
 
 
 
@@ -92,9 +94,9 @@ def LamberConformal(data, cls, west_lon=-120, east_lon=-70, south_lat=20, north_
         "select less time steps to plot"
     for i in clim['time'].values:
         rows = 2 if len(clim['time']) / 2. > 1 else 1
-        columns = int(len(clim['time'])/row + len(clim['time']) % float(row))
+        columns = int(len(clim['time'])/rows + len(clim['time']) % float(rows))
         gs = gridspec.GridSpec(rows, columns)
-        fig_grid = np.concatenate([clim['time'].values, np.array([0])]) if len(clim['time']) % float(row) != 0 else clim['time'].valuesfe
+        fig_grid = np.concatenate([clim['time'].values, np.array([0])]) if len(clim['time']) % float(rows) != 0 else clim['time'].valuesfe
         r,c = np.where(fig_grid.reshape((gs._nrows,gs._ncols)) == i)
 
         proj = ccrs.LambertConformal(central_latitude=25, central_longitude=265, standard_parallels=(25,25))
