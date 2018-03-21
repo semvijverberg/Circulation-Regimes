@@ -16,7 +16,7 @@ Dataset(filename, mode='r')
 ncdf = xr.open_dataset(filename, decode_cf=True, decode_coords=True)
 ncdf.data_vars
 marray    = ncdf.to_array(filename)
-marray = marray.rename({filename:'pv'})
+marray = marray.rename({filename:'pv'}
 marray
 print marray.dims
 print marray.shape
@@ -75,7 +75,7 @@ labels
 marray.groupby(labels).mean('time')
 # you can also do specific calculations based on grouplabel
 # the lambda lets you build an anonamous function
-marray.groupby(labels).apply(lambda pv: pv - pv.min())
+marray.groupby(labels).apply(lambda pv: pv - pv.min())€¡
 
 
 # --------------------------------------- #

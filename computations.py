@@ -25,13 +25,11 @@ def calc_anomaly(cls, decode_cf=True, decode_coords=True):
     months=[]
     for keys in month_index:
         months.append(months_string[keys])
+    months_group = np.tile(months, len(marray['time.year'])/steps_per_year)
+    labels = xr.DataArray(months_group, [marray.coords['time']], name='labels')
 
-    clim = xr.DataArray(np.zeros([steps_per_year, len(marray['latitude']), len(marray['longitude'])]), dims=('time', 'latitude', 'longitude'), coords=[months, marray['latitude'].values,marray['longitude'].values])
-
-    for in_year in range(0,steps_per_year):
-        indices = np.arange(in_year, in_year + (cls.endyear - cls.startyear) * steps_per_year, step=steps_per_year)
-        print(in_year)
-    clim = marray.mean(dim='time')
+    clim = np.squeeze(marray.groupby(labels).mean('time'))
+    clim = clim.rename({'labels': 'time'})
     anom = marray - clim
     upperquan = marray.quantile(0.95, dim="time")
     return clim, anom, upperquan
@@ -41,3 +39,6 @@ def group_time(array, timestep):
     groups = array.groupby('time.' + str(timestep))
 
     return
+
+
+# clim = xr.DataArray(np.zeros([steps_per_year, len(marray['latitude']), len(marray['longitude'])]), dims=('time', 'latitude', 'longitude'), coords=[months, marray['latitude'].values,marray['longitude'].values])
