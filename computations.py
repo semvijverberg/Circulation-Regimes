@@ -9,7 +9,7 @@
 # %run retrieve_ERA_i_field.py
 
 
-def calc_anomaly(cls, decode_cf=True, decode_coords=True):
+def calc_anomaly(cls, q = 0.95, decode_cf=True, decode_coords=True):
     import xarray as xr
     import numpy as np
     import os
@@ -28,13 +28,12 @@ def calc_anomaly(cls, decode_cf=True, decode_coords=True):
     months_group = np.tile(months, len(marray['time.year'])/steps_per_year)
     labels = xr.DataArray(months_group, [marray.coords['time']], name='labels')
 
-    clim = marray.groupby(labels).mean('time')
-    clim = clim.rename({'labels': 'time'})
-
+    clim = marray.groupby(labels).mean('time').rename({'labels': 'time'})
     anom = marray - np.tile(clim,(1,(cls.endyear+1-cls.startyear),1,1))
-    upperquan = anom.quantile(0.95, dim="time")
+    std = anom.groupby(labels).reduce(np.percentile, dim='time', q=q).rename({'labels': 'time'})
 
-    return clim, anom, upperquan
+
+    return clim, anom, std
 
 
 
