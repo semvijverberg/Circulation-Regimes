@@ -21,10 +21,10 @@ cls = temperature
 
 # PlateCarree(clim-273, temperature)
 data = anom.isel(time=np.array(np.where(anom['time.year']==1979)).reshape(3))
-PlateCarree(clim, temperature, type='norm')
+PlateCarree_timesteps(data, temperature, valueformat='norm', region='EA')
 
 
-
+plottable = data.sel(time=data['time'][0])
 
 
 
@@ -37,19 +37,22 @@ def clustering(data, method, n_clusters, cls):
     import seaborn as sns
     algorithm = cluster.__dict__[method]
     output = input.copy()
-    output[:,:,:] =0.
+    output[:,:,:] =1.
     def find_nearest(array, value):
         idx = (np.abs(array - value)).argmin()
         return idx
     # for t in data['time'].values:
     t = data['time'].values[0]
     region_values = find_region(input.sel(time=t),region='EA')
+    output.where()
     test = np.reshape(region_values.values, (np.size(region_values),  1))
     func = algorithm(n_clusters)
     out_clus = func.fit(test)
     centroids = out_clus.cluster_centers_
     labels = out_clus.labels_
     lonlat_cluster = np.reshape(labels, region_values.shape)
+    region_values.values = lonlat_cluster
+
 
     lons, lats = np.meshgrid(output.longitude, output.latitude)
     test = output.sel(time=t, longitude=region_values.longitude, latitude=region_values.latitude) #lonlat_cluster
@@ -78,7 +81,7 @@ method = methods[0] ; n_clusters = 4
 out_cluster = clustering(anom, methods[0], n_clusters, temperature)
 
 data = anom.isel(time=np.array(np.where(anom['time.year']==1979)).reshape(3))
-PlateCarree(data, temperature, type='norm',west_lon=-120, east_lon=-70, south_lat=20, north_lat=50)
+PlateCarree(data, temperature, valueformat='norm')
 
 
 exit()
