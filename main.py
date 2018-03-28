@@ -7,6 +7,7 @@ Variable = what_variable.Variable
 retrieve_ERA_i_field = retrieve_ERA_i.retrieve_ERA_i_field
 calc_anomaly = computations.calc_anomaly
 PlateCarree = plotting.PlateCarree
+PlateCarree_timesteps = plotting.PlateCarree_timesteps
 LamberConformal = plotting.LamberConformal
 find_region = plotting.find_region
 

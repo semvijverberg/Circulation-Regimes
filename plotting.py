@@ -38,6 +38,7 @@ def PlateCarree_timesteps(data, cls, valueformat='abs', region='EA'):
         PlateCarree(plottable, valueformat=valueformat, rows=rows, columns=columns, region=region)
 
 def PlateCarree(plottable, valueformat='abs', rows=1, columns=1, r=0, c=0, region='EA'):
+    import numpy as np
     import cartopy.crs as ccrs
     import cartopy.feature as cfeat
     from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
@@ -78,7 +79,7 @@ def PlateCarree(plottable, valueformat='abs', rows=1, columns=1, r=0, c=0, regio
                         # cmap=plt.cm.coolwarm, norm=norm)
     map = plottable.plot.contourf(ax=ax, cmap=plt.cm.RdBu_r, levels=np.linspace(min_region, max_region, 11),
                                   add_colorbar=False, transform=ccrs.PlateCarree())
-    ax.set_title(np.str(i).split(':')[0]);
+    # ax.set_title(np.str(i).split(':')[0]);
     cb = plt.colorbar(map, ax=ax, orientation='horizontal', use_gridspec=True, fraction=0.1, pad=0.1, label=unit)
     # cb.set_label('label', rotation=0, position=(0.5, 0.5))
     gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
