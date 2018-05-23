@@ -6,6 +6,7 @@ import numpy as np
 import plotting
 Variable = what_variable.Variable
 retrieve_ERA_i_field = retrieve_ERA_i.retrieve_ERA_i_field
+import_array = computations.import_array
 calc_anomaly = computations.calc_anomaly
 PlateCarree_timesteps = plotting.PlateCarree_timesteps
 PlateCarree = plotting.PlateCarree
@@ -14,12 +15,12 @@ find_region = plotting.find_region
 
 
 # assign instance
-temperature = Variable(name='2 metre temperature', levtype='sfc', lvllist=0, var_cf_code='167.128',
+temperature = Variable(name='2 metre temperature', dataset='ERA-i', var_cf_code='167.128', levtype='sfc', lvllist=0,
                        startyear=1979, endyear=2017, startmonth=6, endmonth=8, grid='2.5/2.5', stream='mnth', units='K')
 # Download variable
 retrieve_ERA_i_field(temperature)
-cls = temperature
-clim, anom, std = calc_anomaly(cls=temperature)
+marray, temperature = import_array(temperature, decode_cf=True, decode_coords=True)
+clim, anom, std = calc_anomaly(marray=marray, cls=temperature)
 
 
 def clustering(data, method, n_clusters, cls):
@@ -29,16 +30,16 @@ def clustering(data, method, n_clusters, cls):
     import seaborn as sns
     region_values, region_coords = find_region(input.isel(time=0), region='EA')
     output = np.repeat(region_values.expand_dims('time', axis=0).copy(), len(data.time), axis=0)
-    output = region_values.values.copy()
+    # output = region_values.values.copy()
     output['time'] = data['time']
     algorithm = cluster.__dict__[method]
     print algorithm
     for t in data['time'].values:
-        t = data['time'].values[0]
-        region_values, region_coords = find_region(input.sel(time=t),region='EA')
-        # test = np.reshape(region_values.values, (np.size(region_values),  1))
-        X_vectors = np.reshape(region_values, (shape[0]*shape[1], 2))
-        X = StandardScaler().fit_transform(region_values)
+        # t = data['time'].values[0]
+        region_values, region_coords = find_region(input.sel(time=t),region='EU')
+        X_vectors = np.reshape(region_values.values, (np.size(region_values),  1))
+        # X_vectors = np.reshape(region_values, (shape[0]*shape[1], 2))
+        X = StandardScaler().fit_transform(X_vectors)
         if method == 'KMeans':
             out_clus = algorithm(n_clusters).fit(X)
         if method == 'AgglomerativeClustering':
@@ -55,16 +56,15 @@ def clustering(data, method, n_clusters, cls):
         print idx
         output[idx,:,:] = lonlat_cluster
 
-    folder = '/Users/semvijverberg/surfdrive/Output_ERA/Clustering/' + method
+    folder = os.path.join(cls.base_path,'Clustering/' + method)
     if os.path.isdir(folder):
         pass
     else:
         os.makedirs(folder)
-    namefile = cls.name + '_' + method + '_' + '{}-{}.nc'.format(int(data['time.year'].max()),
-                                                                 int(data['time.year'].min()))
+    namefile = cls.name + '_' + method + '_' + '{}-{}.nc'.format(int(data['time.year'].min()),
+                                                                 int(data['time.year'].max()))
     output.to_netcdf(folder + '/'+ namefile.replace(' ', '_'))
-    output.attrs['cls'] = data.cls
-    output.cls.units = 'clusters, n = {}'.format(n_clusters)
+    output.attrs['units'] = 'clusters, n = {}'.format(n_clusters)
     return output
 
 
@@ -75,7 +75,6 @@ data = anom.isel(time=np.array(np.where(anom['time.month']==6)).reshape(int(anom
 out_cluster = clustering(data, method, n_clusters, temperature)
 PlateCarree_timesteps(out_cluster, temperature)
 PlateCarree_timesteps(anom, temperature)
-
 
 
 from sklearn.datasets.samples_generator import make_blobs
