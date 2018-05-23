@@ -96,6 +96,7 @@ def PlateCarree(plottable, valueformat='abs', rows=1, columns=1, r=0, c=0, regio
         std_region = np.std(values_region).values
         min_region = np.min(values_region / std_region).values
         max_region = np.max(values_region / std_region).values
+        plottable = np.squeeze(data / std_region)
         unit = r"T2m $\sigma$ " + "= {:}".format(round(std_region, 1))
     elif valueformat == 'abs':
         print "absolute"
@@ -103,12 +104,9 @@ def PlateCarree(plottable, valueformat='abs', rows=1, columns=1, r=0, c=0, regio
         max_region = np.max(values_region)
         unit = plottable.attrs['units']
     if plottable['longitude'][0] == 0. and plottable['longitude'][-1]-360 < 5. :
-        print True
         plottable = extend_longitude(plottable)
         plottable = extend_longitude(plottable)
     lons, lats = np.meshgrid(plottable['longitude'].values, plottable['latitude'].values)
-    print lons.shape
-    print plottable.shape
     # norm = colors.BoundaryNorm(boundaries=np.linspace(round(min_region), round(max_region), 11), ncolors=256)
     map = ax.pcolormesh(lons, lats, plottable, transform=ccrs.PlateCarree(), vmin=min_region, vmax=max_region,
                         cmap=plt.cm.coolwarm)

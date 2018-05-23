@@ -77,11 +77,6 @@ PlateCarree_timesteps(out_cluster, temperature)
 PlateCarree_timesteps(anom, temperature)
 
 
-from sklearn.datasets.samples_generator import make_blobs
-X, y_true = make_blobs(n_samples=300, centers=4,
-                       cluster_std=0.60, random_state=0)
-plt.scatter(X[:, 0], X[:, 1], s=50);
-
 
 data = clim.isel(time=np.array(np.where(anom['time.year']==1979)).reshape(3))
 PlateCarree_timesteps(data, temperature)
@@ -93,12 +88,12 @@ PlateCarree_timesteps(data, temperature)
 single_timestep_1 = clim.sel(time=clim['time'])[0,0]
 single_timestep_2 = anom.sel(time=anom['time'])[0,0]
 PlateCarree(single_timestep_1)
-PlateCarree(single_timestep_2)
+PlateCarree(single_timestep_2, valueformat='norm')
 exit()
 
 
 single_timestep_2 = data[0,0]
-PlateCarree(single_timestep_2, valueformat='norm', region='EA')
+PlateCarree(single_timestep_2, valueformat='norm', region='EU')
 PlateCarree(plot[0])
 
 # palette = sns.color_palette('deep', np.unique(labels).max() + 1)
