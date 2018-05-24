@@ -11,7 +11,7 @@ def quickplot_numpyarray(data):
 
 
 
-def PlateCarree_timesteps(data, cls, type='abs', region='EU'):
+def PlateCarree_timesteps(data, cls, type='abs', cbar_mode='compare', region='EU'):
     import numpy as np
     import cartopy.crs as ccrs
     import cartopy.feature as cfeat
@@ -47,6 +47,10 @@ def PlateCarree_timesteps(data, cls, type='abs', region='EU'):
             values_region, region_coords = find_region(data, region=region)
             ax.set_xlim(region_coords[0], region_coords[1])  # west lon, east_lon
             ax.set_ylim(region_coords[2], region_coords[3])  # south_lat, north_lat
+        if cbar_mode == 'compare':
+            pass
+        elif cbar_mode == 'individual':
+            values_region = values_region.sel(time=i)
         if type=='norm':
             std_region = np.std(values_region).values
             min_region = np.min(values_region/std_region).values ; max_region = np.max(values_region/std_region).values
