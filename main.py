@@ -74,7 +74,7 @@ method = methods[0] ; n_clusters = 2
 data = anom.isel(time=np.array(np.where(anom['time.month']==6)).reshape(int(anom['time.year'].max()-anom['time.year'].min()+1)))
 out_cluster = clustering(data, method, n_clusters, temperature)
 PlateCarree_timesteps(out_cluster, temperature)
-PlateCarree_timesteps(anom, temperature)
+PlateCarree_timesteps(data, temperature)
 data = clim.isel(time=np.array(np.where(anom['time.year']==1979)).reshape(3))
 PlateCarree_timesteps(data, temperature)
 
