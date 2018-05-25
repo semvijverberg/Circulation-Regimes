@@ -55,16 +55,18 @@ def clustering(data, method, n_clusters, cls):
         lonlat_cluster = np.reshape(labels, region_values.shape)
         idx = int(np.where(output['time'] ==  t)[0])
         output[idx,:,:] = lonlat_cluster
-    region_values, region_coords = find_region(input.sel(time=data['time'].values[0]), region='EU')
+
     output.name = 'kmeans_' + data.name
-    folder = os.path.join(cls.base_path,'Clustering/' + method)
-    if os.path.isdir(folder):
-        pass
-    else:
-        os.makedirs(folder)
-    functions.quicksave_ncdf(region_values, cls, path=folder, name=region_values.name)
-    plotting.xarray_plot(output, path=folder, saving=True)
-    plotting.xarray_plot(region_values, path=folder, saving=True)
+    for t in data['time'].values[:5]:
+        folder = os.path.join(cls.base_path,'Clustering/' + method, str(t)[:7])
+        if os.path.isdir(folder):
+            pass
+        else:
+            os.makedirs(folder)
+        functions.quicksave_ncdf(region_values, cls, path=folder, name=region_values.name)
+        plotting.xarray_plot(output.sel(time=t), path=folder, saving=True)
+        region_values, region_coords = find_region(input.sel(time=t), region='EU')
+        plotting.xarray_plot(region_values, path=folder, saving=True)
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters)
     return output
 
