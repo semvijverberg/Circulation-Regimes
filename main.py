@@ -1,13 +1,13 @@
 import os
 import what_variable
 import retrieve_ERA_i
-import computations
+import functions
 import numpy as np
 import plotting
 Variable = what_variable.Variable
 retrieve_ERA_i_field = retrieve_ERA_i.retrieve_ERA_i_field
-import_array = computations.import_array
-calc_anomaly = computations.calc_anomaly
+import_array = functions.import_array
+calc_anomaly = functions.calc_anomaly
 PlateCarree_timesteps = plotting.PlateCarree_timesteps
 PlateCarree = plotting.PlateCarree
 LamberConformal = plotting.LamberConformal
@@ -23,6 +23,7 @@ marray, temperature = import_array(temperature, decode_cf=True, decode_coords=Tr
 clim, anom, std = calc_anomaly(marray=marray, cls=temperature)
 
 
+
 def clustering(data, method, n_clusters, cls):
     input = np.squeeze(data.isel(data.get_axis_num(cls.name)))
     import sklearn.cluster as cluster
@@ -30,7 +31,7 @@ def clustering(data, method, n_clusters, cls):
     import seaborn as sns
     region_values, region_coords = find_region(input.isel(time=0), region='EU')
     output = np.repeat(region_values.expand_dims('time', axis=0).copy(), len(data.time), axis=0)
-    # output = region_values.values.copy()
+
     output['time'] = data['time']
     algorithm = cluster.__dict__[method]
     print algorithm
@@ -53,26 +54,27 @@ def clustering(data, method, n_clusters, cls):
         # print np.max(labels)
         lonlat_cluster = np.reshape(labels, region_values.shape)
         idx = int(np.where(output['time'] ==  t)[0])
-        print idx
         output[idx,:,:] = lonlat_cluster
-
+    region_values, region_coords = find_region(input.sel(time=data['time'].values[0]), region='EU')
+    output.name = 'kmeans_' + data.name
     folder = os.path.join(cls.base_path,'Clustering/' + method)
     if os.path.isdir(folder):
         pass
     else:
         os.makedirs(folder)
-    namefile = cls.name + '_' + method + '_' + '{}-{}.nc'.format(int(data['time.year'].min()),
-                                                                 int(data['time.year'].max()))
-    output.to_netcdf(folder + '/'+ namefile.replace(' ', '_'))
+    functions.quicksave_ncdf(region_values, cls, path=folder, name=region_values.name)
+    plotting.xarray_plot(output, path=folder, saving=True)
+    plotting.xarray_plot(region_values, path=folder, saving=True)
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters)
     return output
 
 
 
 methods = ['KMeans', 'DBSCAN','AgglomerativeClustering','hierarchical']
-method = methods[0] ; n_clusters = 2
+method = methods[0] ; n_clusters = 4
 data = anom.isel(time=np.array(np.where(anom['time.month']==6)).reshape(int(anom['time.year'].max()-anom['time.year'].min()+1)))
-out_cluster = clustering(data, method, n_clusters, temperature)
+output = clustering(data, method, n_clusters, temperature)
+
 PlateCarree_timesteps(out_cluster, temperature)
 PlateCarree_timesteps(data, temperature)
 data = clim.isel(time=np.array(np.where(anom['time.year']==1979)).reshape(3))
@@ -88,54 +90,20 @@ from eofs.examples import example_data_path
 # European/Atlantic domain (80W-40E, 20-90N).
 filename = example_data_path('hgt_djf.nc')
 z_djf = xr.open_dataset(filename)['z']
-
 # Compute anomalies by removing the time-mean.
 z_djf = z_djf - z_djf.mean(dim='time')
 
-eof_output = EOF(z_djf, neofs=4)
-eof_output = EOF(region_values, neofs=4)
+eof_output = functions.EOF(z_djf, neofs=4)
+eof_output = functions.EOF(region_values, neofs=4)
 PlateCarree_timesteps(eof_output.rename( {'mode':'time'}), temperature, cbar_mode='individual')
+functions.(region_values)
+plotting.xarray_plot(eof_output)
 
 
-def convert_longitude(data):
-    lon_above = data.longitude[np.where(data.longitude > 180)[0]]
-    lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
-    substract = lambda x, y: (x - y)
-    lon_above = xr.apply_ufunc(substract, lon_above, 360)
-    convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
-    data['longitude'] = convert_lon
-    return data
-
-def xarray_plot(data):
-    import matplotlib.pyplot as plt
-    import cartopy.crs as ccrs
-    if len(data.longitude[np.where(data.longitude > 180)[0]]) != 0:
-        data = convert_longitude(data)
-    else:
-        pass
-    if data.shape
-    eof1 = eof_output[0]
-    clevs = np.linspace(-75, 75, 11)
-    proj = ccrs.Orthographic(central_longitude=-20, central_latitude=60)
-    ax = plt.axes(projection=proj)
-    ax.coastlines()
-    ax.set_global()
-    eof1.plot.contourf(ax=ax, levels=clevs, cmap=plt.cm.RdBu_r,
-                             transform=ccrs.PlateCarree(), add_colorbar=True)
-    ax.set_title('EOF1 expressed as covariance', fontsize=16)
-    plt.show()
 
 
-def EOF(data, neofs=1, center=False, weights=None):
-    from eofs.xarray import Eof
-    # Create an EOF solver to do the EOF analysis. Square-root of cosine of
-    # latitude weights are applied before the computation of EOFs.
-    coslat = np.cos(np.deg2rad(anom.coords['latitude'].values)).clip(0., 1.)
-    wgts = np.sqrt(coslat)[..., np.newaxis]
-    solver = Eof(np.squeeze(data), center=False)
-    eof_output = solver.eofsAsCovariance(neofs=4)
-    eof_output.attrs['units'] = 'mode'
-    return eof_output
+
+
 
 
 exit()

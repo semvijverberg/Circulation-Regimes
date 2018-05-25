@@ -9,7 +9,53 @@ def quickplot_numpyarray(data):
     plt.imshow(data)
     plt.colorbar()
 
+def save_figure(data, path):
+    import os
+    import matplotlib.pyplot as plt
+    if 'path' in locals():
+        pass
+    else:
+        path = '/Users/semvijverberg/Downloads'
+    import datetime
+    today = datetime.datetime.today().strftime("%d-%m-%y_%H'%M")
+    if data.name != '':
+        name = data.name.replace(' ', '_')
+    if 'name' in locals():
+        print 'input name is: {}'.format(name)
+        name = name + '_' + today + '.jpeg'
+        pass
+    else:
+        name = 'fig_' + today + '.jpeg'
+    print('{} to path {}'.format(name, path))
+    plt.savefig(os.path.join(path,name), format='jpeg', bbox_inches='tight')
 
+
+def xarray_plot(data, path, saving=False):
+    # from plotting import save_figure
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import numpy as np
+    plt.figure()
+    if len(data.longitude[np.where(data.longitude > 180)[0]]) != 0:
+        data = convert_longitude(data)
+    else:
+        pass
+    if np.squeeze(data).ndim != 2:
+        print "number of dimension is {}, printing first element of first dimension".format(np.squeeze(data).ndim)
+        data = np.squeeze(data)[0]
+    else:
+        pass
+    proj = ccrs.Orthographic(central_longitude=-20, central_latitude=60)
+    ax = plt.axes(projection=proj)
+    ax.coastlines()
+    # ax.set_global()
+    data.plot.contourf(ax=ax, cmap=plt.cm.RdBu_r,
+                             transform=ccrs.PlateCarree(), add_colorbar=True)
+    if saving == True:
+        save_figure(data, path=path)
+    plt.show()
+
+# xarray_plot(output, saving=True, path=folder)
 
 def PlateCarree_timesteps(data, cls, type='abs', cbar_mode='compare', region='EU'):
     import numpy as np
@@ -174,6 +220,17 @@ def extend_longitude(plottable):
     plottable["longitude"] = np.linspace(0,360, len(plottable.longitude))
     plottable = plottable["ds"]
     return plottable
+
+def convert_longitude(data):
+    import numpy as np
+    import xarray as xr
+    lon_above = data.longitude[np.where(data.longitude > 180)[0]]
+    lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
+    substract = lambda x, y: (x - y)
+    lon_above = xr.apply_ufunc(substract, lon_above, 360)
+    convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
+    data['longitude'] = convert_lon
+    return data
 
 def find_region(data, region='EU'):
     if region == 'EU':

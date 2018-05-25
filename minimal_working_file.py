@@ -1,6 +1,6 @@
 import what_variable
 import retrieve_ERA_i
-import computations
+import functions
 import numpy as np
 
 
@@ -10,7 +10,7 @@ temperature = what_variable.Variable(name='2 metre temperature', levtype='sfc', 
 # Download variable
 retrieve_ERA_i.retrieve_ERA_i_field(temperature)
 # retrieve_ERA_i_field(temperature)
-clim, anom, upperquan = computations.calc_anomaly(cls=temperature)
+clim, anom, upperquan = functions.calc_anomaly(cls=temperature)
 
 
 data = np.squeeze(clim)

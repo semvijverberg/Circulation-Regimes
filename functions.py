@@ -67,12 +67,43 @@ def calc_anomaly(marray, cls, q = 0.95):
     labels = xr.DataArray(months_group, [marray.coords['time']], name='labels')
 
     clim = marray.groupby(labels).mean('time', keep_attrs=True).rename({'labels': 'time'})
+    clim.name = 'clim'
     substract = lambda x, y: (x - y)
     anom = xr.apply_ufunc(substract, marray, np.tile(clim,(1,(cls.endyear+1-cls.startyear),1,1)), keep_attrs=True)
+    anom.name = 'anom'
     std = anom.groupby(labels).reduce(np.percentile, dim='time', keep_attrs=True, q=q).rename({'labels': 'time'})
-
+    std.name = 'std'
     return clim, anom, std
 
+def EOF(data, neofs=1, center=False, weights=None):
+    import numpy as np
+    from eofs.xarray import Eof
+    # Create an EOF solver to do the EOF analysis. Square-root of cosine of
+    # latitude weights are applied before the computation of EOFs.
+    coslat = np.cos(np.deg2rad(data.coords['latitude'].values)).clip(0., 1.)
+    wgts = np.sqrt(coslat)[..., np.newaxis]
+    solver = Eof(np.squeeze(data), center=False)
+    eof_output = solver.eofsAsCovariance(neofs=4)
+    eof_output.attrs['units'] = 'mode'
+    return eof_output
 
+def quicksave_ncdf(data, cls, path, name):
+    import os
+    if 'path' in locals():
+        pass
+    else:
+        path = '/Users/semvijverberg/Downloads'
+    import datetime
+    today = datetime.datetime.today().strftime("%d-%m-%y_%H'%M")
+    if data.name != '':
+        name = data.name.replace(' ', '_')
+    if 'name' in locals():
+        print 'input name is: '.format(name)
+        name = name + '_' + today + '.nc'
+        pass
+    else:
+        name = 'netcdf_' + today + '.nc'
+    print('{} to path {}'.format(name, path))
+    data.to_netcdf(os.path.join(path, name))
 
 # clim = xr.DataArray(np.zeros([steps_per_year, len(marray['latitude']), len(marray['longitude'])]), dims=('time', 'latitude', 'longitude'), coords=[months, marray['latitude'].values,marray['longitude'].values])
