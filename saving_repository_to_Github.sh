@@ -7,7 +7,7 @@ git add $current_dir #All files in directory staged for commit
 git commit -m "Default"
 git status
 git remote -v
-
+mkdir funnydir
 exit
 
 # Print log of commits
