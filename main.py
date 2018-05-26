@@ -103,9 +103,13 @@ plotting.xarray_plot(eof_output)
 
 
 
-
-
-
+#%%
+import os
+import subprocess
+cwd = os.getcwd()
+runfile = os.path.join(cwd, 'saving_repository_to_Github.sh')
+subprocess.call(runfile)
+#%%
 
 
 exit()
