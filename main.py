@@ -48,7 +48,7 @@ def clustering(data, method, n_clusters, cls):
         elif method == 'DBSCAN':
             out_clus = algorithm(eps=0.05, min_samples=3).fit(test)
         elif method == 'hierarchical':
-            pass
+            algorithm(n_clusters=n_clusters, affinity='euclidean', linkage='ward').fit(X)
         # centroids = out_clus.cluster_centers_
         labels = out_clus.labels_
         # print np.max(labels)
@@ -56,7 +56,7 @@ def clustering(data, method, n_clusters, cls):
         idx = int(np.where(output['time'] ==  t)[0])
         output[idx,:,:] = lonlat_cluster
 
-    output.name = 'kmeans_' + data.name
+    output.name = method + '_' + data.name
     for t in data['time'].values[:5]:
         folder = os.path.join(cls.base_path,'Clustering/' + method, str(t)[:7])
         if os.path.isdir(folder):
@@ -72,8 +72,8 @@ def clustering(data, method, n_clusters, cls):
 
 
 
-methods = ['KMeans', 'DBSCAN','AgglomerativeClustering','hierarchical']
-method = methods[0] ; n_clusters = 4
+methods = ['KMeans', 'DBSCAN','AgglomerativeClustering']
+method = methods[2] ; n_clusters = 4
 data = anom.isel(time=np.array(np.where(anom['time.month']==6)).reshape(int(anom['time.year'].max()-anom['time.year'].min()+1)))
 output = clustering(data, method, n_clusters, temperature)
 
