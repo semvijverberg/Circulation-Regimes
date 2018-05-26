@@ -81,7 +81,7 @@ output = clustering(data, method, n_clusters, temperature)
 data = clim.isel(time=np.array(np.where(anom['time.year']==1979)).reshape(3))
 PlateCarree_timesteps(data, temperature)
 
-
+# Changing
 
 # input data EOF
 region_values, region_coords = find_region(anom, region='EU')
