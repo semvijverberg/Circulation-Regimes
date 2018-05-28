@@ -18,7 +18,7 @@ def import_array(cls, decode_cf=True, decode_coords=True):
     # load in file
     file_path = os.path.join(cls.base_path, 'input', cls.filename)
     ncdf = xr.open_dataset(file_path, decode_cf=True, decode_coords=True, decode_times=False)
-    marray = ncdf.to_array(file_path).rename(({file_path: cls.name}))
+    marray = ncdf.to_array(file_path).rename(({file_path: cls.name.replace(' ', '_')}))
     marray.attrs['units'] = cls.units
     for dims in marray.dims:
         if dims == 'lon':
@@ -100,11 +100,10 @@ def quicksave_ncdf(data, cls, path, name):
     if 'name' in locals():
         print 'input name is: '.format(name)
         name = name + '_' + today + '.nc'
-        pass
     else:
         name = 'netcdf_' + today + '.nc'
-    print('{} to path {}'.format(name, path))
     data.to_netcdf(os.path.join(path, name))
+    print('{} to path {}'.format(name, path))
 
 def clustering_spatial(data, method, n_clusters, cls):
     import numpy as np
@@ -130,7 +129,7 @@ def clustering_spatial(data, method, n_clusters, cls):
 
         output.name = method + '_' + data.name
         for t in data['time'].values[:3]:
-            folder = os.path.join(cls.base_path,'Clustering/' + method, str(t)[:7])
+            folder = os.path.join(cls.base_path,'Clustering_spatial/' + method, str(t)[:7])
             if os.path.isdir(folder):
                 pass
             else:
@@ -154,8 +153,8 @@ def clustering_spatial(data, method, n_clusters, cls):
             method = 'AgglomerativeClustering' + '_' + link
             print method
             cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
-            clustering_plotting(cluster_method, input)
-    folder = os.path.join(cls.base_path, 'Clustering', method)
+            output = clustering_plotting(cluster_method, input)
+    folder = os.path.join(cls.base_path, 'Clustering_spatial', method)
     quicksave_ncdf(input, cls, path=folder, name=input.name)
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters) 
     return output

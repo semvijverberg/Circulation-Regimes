@@ -102,7 +102,7 @@ def find_region(data, region='EU'):
 
     return all_values, region_coords
 
-def PlateCarree_timesteps(data, cls, type='abs', cbar_mode='compare', region='EU'):
+def PlateCarree_timesteps(data, cls, type='abs', cbar_mode='compare', region='EU', saving=False):
     import numpy as np
     import cartopy.crs as ccrs
     import cartopy.feature as cfeat
@@ -153,6 +153,11 @@ def PlateCarree_timesteps(data, cls, type='abs', cbar_mode='compare', region='EU
             unit = plottable.attrs['units']
         if plottable['longitude'][0] == 0. and plottable['longitude'][-1] - 360 < 5.:
             plottable = extend_longitude(plottable)
+        if 'anom' in data._name:
+            if abs(min_region) > max_region:
+                max_region = abs(min_region) 
+            else: 
+                min_region = -max_region
         lons, lats = np.meshgrid(plottable['longitude'].values, plottable['latitude'].values)
         # norm = colors.BoundaryNorm(boundaries=np.linspace(round(min_region),round(max_region),11), ncolors=256)
         map = ax.pcolormesh(lons, lats, plottable, transform=ccrs.PlateCarree(), vmin=min_region, vmax=max_region, cmap=plt.cm.coolwarm)
@@ -161,6 +166,10 @@ def PlateCarree_timesteps(data, cls, type='abs', cbar_mode='compare', region='EU
         gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
         gl.xlabels_top = False ; gl.xformatter = LONGITUDE_FORMATTER
         gl.ylabels_right= False ; gl.yformatter = LATITUDE_FORMATTER
+    if saving == True:
+        save_figure(data, path=path)
+    plt.show()
+        
 
 
 def PlateCarree(plottable, valueformat='abs', rows=1, columns=1, r=0, c=0, region='EU'):

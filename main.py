@@ -48,15 +48,22 @@ def clustering_temporal(data, method, n_clusters, cls):
         output.name = method + '_' + data.name
 #        functions.quicksave_ncdf(output, cls, path=folder, name=output.name)
 
-        for t in data['time'].values[:3]:
-            folder = os.path.join(cls.base_path,'Clustering/' + method, str(t)[:7])
+        for n in range(0,n_clusters):
+            folder = os.path.join(cls.base_path,'Clustering_temporal/', name_method)
+            group_clusters = output.groupby('cluster').mean(dim='time', keep_attrs=True)
+            plotting.xarray_plot(group_clusters.sel(cluster=n), path=folder, saving=True)
+            folder = os.path.join(cls.base_path,'Clustering_temporal/', name_method, str(n))
+            print folder
             if os.path.isdir(folder):
                 pass
             else:
                 os.makedirs(folder)
-            plotting.xarray_plot(output.sel(time_dates=t), path=folder, saving=True)
-            region_values, region_coords = find_region(input.sel(time=t), region='EU')
-            plotting.xarray_plot(region_values, path=folder, saving=True)
+            for t in output.sel(cluster=n).time_dates.values:
+                output.name = 'cluster_{}_{}'.format(n, str(t)[:7])
+                plotting.xarray_plot(output.sel(time_dates=t), path=folder, saving=True)
+
+        return output
+
         
     algorithm = cluster.__dict__[method]
     print algorithm
@@ -69,13 +76,13 @@ def clustering_temporal(data, method, n_clusters, cls):
         #                   'ward', or 'weighted'. See 'doc linkage' for more info.
         #                   'average' is standard.
         linkage = ['ward','complete', 'average']
-        
+        linkage = ['ward']
         for link in linkage:
-            name_method = method + '_' + link
+            name_method = os.path.join(method, link)
             print name_method
             cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
-            clustering_plotting(cluster_method, input)
-    folder = os.path.join(cls.base_path, 'Clustering', name_method)
+            output = clustering_plotting(cluster_method, input)
+    folder = os.path.join(cls.base_path, 'Clustering_temporal', method)
     functions.quicksave_ncdf(input, cls, path=folder, name=region_values.name)
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters)
    
@@ -86,17 +93,29 @@ cls = temperature
 methods = ['KMeans', 'AgglomerativeClustering', 'hierarchical']
 method = methods[1] ; n_clusters = 4
 data = anom.isel(time=np.array(np.where(anom['time.month']==6)).reshape(int(anom['time.year'].max()-anom['time.year'].min()+1)))
-#%%
-output = functions.clustering_spatial(data, method, n_clusters, temperature)
+
 #%%
 output = clustering_temporal(data, method, n_clusters, temperature)
-data = output.groupby('cluster').mean(dim='time', keep_attrs=True) 
-PlateCarree_timesteps(data.rename( {'cluster':'time'} ), temperature)
+plottable = output.groupby('cluster').mean(dim='time', keep_attrs=True) 
+#PlateCarree_timesteps(plottable.rename( {'cluster':'time'} ), temperature)
 #%%
 
+#%%
+output = functions.clustering_spatial(data, method, n_clusters, temperature)
+
+
+
+
+
+#%%
+import os
+import subprocess
+cwd = os.getcwd()
+runfile = os.path.join(cwd, 'saving_repository_to_Github.sh')
+subprocess.call(runfile)
+#%%
 data = clim.isel(time=np.array(np.where(anom['time.year']==1979)).reshape(3))
 PlateCarree_timesteps(data, temperature)
-
 
 
 # input data EOF
@@ -115,17 +134,6 @@ eof_output = functions.EOF(region_values, neofs=4)
 PlateCarree_timesteps(eof_output.rename( {'mode':'time'}), temperature, cbar_mode='individual')
 functions.(region_values)
 plotting.xarray_plot(eof_output)
-
-
-
-#%%
-import os
-import subprocess
-cwd = os.getcwd()
-runfile = os.path.join(cwd, 'saving_repository_to_Github.sh')
-subprocess.call(runfile)
-#%%
-
 
 exit()
 
