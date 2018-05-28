@@ -7,7 +7,7 @@
 # import os
 # import IPython
 # %run retrieve_ERA_i_field.py
-
+import plotting
 
 
 
@@ -107,17 +107,19 @@ def quicksave_ncdf(data, cls, path, name):
     data.to_netcdf(os.path.join(path, name))
 
 def clustering_spatial(data, method, n_clusters, cls):
-    input = np.squeeze(data.isel(data.get_axis_num(cls.name)))
+    import numpy as np
+    import os
     import sklearn.cluster as cluster
     from sklearn.preprocessing import StandardScaler
-    import seaborn as sns
+    from functions import quicksave_ncdf
+    input = np.squeeze(data.isel(data.get_axis_num(cls.name)))
     def clustering_plotting(cluster_method, input):
-        region_values, region_coords = find_region(input.isel(time=0), region='EU')
+        region_values, region_coords = plotting.find_region(input.isel(time=0), region='EU')
         output = np.repeat(region_values.expand_dims('time', axis=0).copy(), len(data.time), axis=0)
         output['time'] = data['time']
         for t in data['time'].values:
             # t = data['time'].values[0]
-            region_values, region_coords = find_region(input.sel(time=t),region='EU')
+            region_values, region_coords = plotting.find_region(input.sel(time=t),region='EU')
             X_vectors = np.reshape(region_values.values, (np.size(region_values),  1))
             X = StandardScaler().fit_transform(X_vectors)
             out_clus = cluster_method.fit(X)
@@ -134,7 +136,7 @@ def clustering_spatial(data, method, n_clusters, cls):
             else:
                 os.makedirs(folder)
             plotting.xarray_plot(output.sel(time=t), path=folder, saving=True)
-            region_values, region_coords = find_region(input.sel(time=t), region='EU')
+            region_values, region_coords = plotting.find_region(input.sel(time=t), region='EU')
             plotting.xarray_plot(region_values, path=folder, saving=True)
         return output   
     algorithm = cluster.__dict__[method]
@@ -154,8 +156,8 @@ def clustering_spatial(data, method, n_clusters, cls):
             cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
             clustering_plotting(cluster_method, input)
     folder = os.path.join(cls.base_path, 'Clustering', method)
-    functions.quicksave_ncdf(input, cls, path=folder, name=region_values.name)
+    quicksave_ncdf(input, cls, path=folder, name=input.name)
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters) 
     return output
 #%%
-# clim = xr.DataArray(np.zeros([steps_per_year, len(marray['latitude']), len(marray['longitude'])]), dims=('time', 'latitude', 'longitude'), coords=[months, marray['latitude'].values,marray['longitude'].values])
+# clim = xr.DataArray(input_array_3Dims, dims=('time', 'latitude', 'longitude'), coords=[months, latitudes,longitudes])

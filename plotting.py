@@ -36,13 +36,14 @@ def xarray_plot(data, path, saving=False):
     import cartopy.crs as ccrs
     import numpy as np
     plt.figure()
+    data = np.squeeze(data)
     if len(data.longitude[np.where(data.longitude > 180)[0]]) != 0:
         data = convert_longitude(data)
     else:
         pass
-    if np.squeeze(data).ndim != 2:
+    if data.ndim != 2:
         print "number of dimension is {}, printing first element of first dimension".format(np.squeeze(data).ndim)
-        data = np.squeeze(data)[0]
+        data = data[0]
     else:
         pass
     proj = ccrs.Orthographic(central_longitude=-20, central_latitude=60)
@@ -55,7 +56,51 @@ def xarray_plot(data, path, saving=False):
         save_figure(data, path=path)
     plt.show()
 
-# xarray_plot(output, saving=True, path=folder)
+def extend_longitude(plottable):
+    import xarray as xr
+    import numpy as np
+    plottable = xr.concat([plottable, plottable.sel(longitude=plottable.longitude[:1])], dim='longitude').to_dataset(name="ds")
+    plottable["longitude"] = np.linspace(0,360, len(plottable.longitude))
+    plottable = plottable["ds"]
+    return plottable
+
+def convert_longitude(data):
+    import numpy as np
+    import xarray as xr
+    lon_above = data.longitude[np.where(data.longitude > 180)[0]]
+    lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
+    substract = lambda x, y: (x - y)
+    lon_above = xr.apply_ufunc(substract, lon_above, 360)
+    convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
+    data['longitude'] = convert_lon
+    return data
+
+def find_region(data, region='EU'):
+    if region == 'EU':
+        west_lon = -30; east_lon = 40; south_lat = 35; north_lat = 65
+
+    elif region ==  'U.S.':
+        west_lon = -120; east_lon = -70; south_lat = 20; north_lat = 50
+
+    region_coords = [west_lon, east_lon, south_lat, north_lat]
+    import numpy as np
+    def find_nearest(array, value):
+        idx = (np.abs(array - value)).argmin()
+        return int(idx)
+    if west_lon <0 and east_lon > 0:
+        # left_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(0, east_lon)))
+        # right_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360)))
+        # all_values = np.concatenate((np.reshape(left_of_meridional, (np.size(left_of_meridional))), np.reshape(right_of_meridional, np.size(right_of_meridional))))
+        lon_idx = np.concatenate(( np.arange(find_nearest(data['longitude'], 360 + west_lon), len(data['longitude'])),
+                              np.arange(0,find_nearest(data['longitude'], east_lon), 1) ))
+        lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
+        all_values = data.sel(latitude=slice(north_lat, south_lat), longitude=(data.longitude > 360 + west_lon) | (data.longitude < east_lon))
+    if west_lon < 0 and east_lon < 0:
+        all_values = data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360+east_lon))
+        lon_idx = np.arange(find_nearest(data['longitude'], 360 + west_lon), find_nearest(data['longitude'], 360+east_lon))
+        lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
+
+    return all_values, region_coords
 
 def PlateCarree_timesteps(data, cls, type='abs', cbar_mode='compare', region='EU'):
     import numpy as np
@@ -213,50 +258,6 @@ def LamberConformal(data, cls, west_lon=-120, east_lon=-70, south_lat=20, north_
         plt.show()
 
 
-def extend_longitude(plottable):
-    import xarray as xr
-    import numpy as np
-    plottable = xr.concat([plottable, plottable.sel(longitude=plottable.longitude[:1])], dim='longitude').to_dataset(name="ds")
-    plottable["longitude"] = np.linspace(0,360, len(plottable.longitude))
-    plottable = plottable["ds"]
-    return plottable
 
-def convert_longitude(data):
-    import numpy as np
-    import xarray as xr
-    lon_above = data.longitude[np.where(data.longitude > 180)[0]]
-    lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
-    substract = lambda x, y: (x - y)
-    lon_above = xr.apply_ufunc(substract, lon_above, 360)
-    convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
-    data['longitude'] = convert_lon
-    return data
-
-def find_region(data, region='EU'):
-    if region == 'EU':
-        west_lon = -30; east_lon = 40; south_lat = 35; north_lat = 65
-
-    elif region ==  'U.S.':
-        west_lon = -120; east_lon = -70; south_lat = 20; north_lat = 50
-
-    region_coords = [west_lon, east_lon, south_lat, north_lat]
-    import numpy as np
-    def find_nearest(array, value):
-        idx = (np.abs(array - value)).argmin()
-        return int(idx)
-    if west_lon <0 and east_lon > 0:
-        # left_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(0, east_lon)))
-        # right_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360)))
-        # all_values = np.concatenate((np.reshape(left_of_meridional, (np.size(left_of_meridional))), np.reshape(right_of_meridional, np.size(right_of_meridional))))
-        lon_idx = np.concatenate(( np.arange(find_nearest(data['longitude'], 360 + west_lon), len(data['longitude'])),
-                              np.arange(0,find_nearest(data['longitude'], east_lon), 1) ))
-        lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
-        all_values = data.sel(latitude=slice(north_lat, south_lat), longitude=(data.longitude > 360 + west_lon) | (data.longitude < east_lon))
-    if west_lon < 0 and east_lon < 0:
-        all_values = data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360+east_lon))
-        lon_idx = np.arange(find_nearest(data['longitude'], 360 + west_lon), find_nearest(data['longitude'], 360+east_lon))
-        lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
-
-    return all_values, region_coords
 
 # west_lon=-30; east_lon=40; south_lat=35; north_lat=65
