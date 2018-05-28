@@ -29,6 +29,7 @@ def import_array(cls, decode_cf=True, decode_coords=True):
             pass
     marray.attrs['units'] = cls.units
     marray.attrs['dataset'] = cls.dataset
+    marray.name = cls.name
     print("import array {}".format(cls.name))
     if 'units' in marray.time.attrs:
         if marray.time.attrs['units'] == 'months since 1861-01-01':
@@ -67,12 +68,12 @@ def calc_anomaly(marray, cls, q = 0.95):
     labels = xr.DataArray(months_group, [marray.coords['time']], name='labels')
 
     clim = marray.groupby(labels).mean('time', keep_attrs=True).rename({'labels': 'time'})
-    clim.name = 'clim'
+    clim.name = 'clim_' + marray.name
     substract = lambda x, y: (x - y)
     anom = xr.apply_ufunc(substract, marray, np.tile(clim,(1,(cls.endyear+1-cls.startyear),1,1)), keep_attrs=True)
-    anom.name = 'anom'
+    anom.name = 'anom_'
     std = anom.groupby(labels).reduce(np.percentile, dim='time', keep_attrs=True, q=q).rename({'labels': 'time'})
-    std.name = 'std'
+    std.name = 'std_'
     return clim, anom, std
 
 def EOF(data, neofs=1, center=False, weights=None):

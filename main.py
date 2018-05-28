@@ -15,11 +15,12 @@ find_region = plotting.find_region
 
 
 # assign instance
-temperature = Variable(name='2 metre temperature', dataset='ERA-i', var_cf_code='167.128', levtype='sfc', lvllist=0,
+temperature = Variable(name='2_metre_temperature', dataset='ERA-i', var_cf_code='167.128', levtype='sfc', lvllist=0,
                        startyear=1979, endyear=2017, startmonth=6, endmonth=8, grid='2.5/2.5', stream='mnth', units='K')
 # Download variable
 retrieve_ERA_i_field(temperature)
 marray, temperature = import_array(temperature, decode_cf=True, decode_coords=True)
+
 clim, anom, std = calc_anomaly(marray=marray, cls=temperature)
 
 #%%
@@ -35,6 +36,7 @@ def clustering_temporal(data, method, n_clusters, cls):
 #                              coords=[range(0,n_clusters), output['latitude'].values,output['longitude'].values])
         
         region_values, region_coords = find_region(input,region='EU')
+        print region_values.mean()
         output = region_values.copy()
         X_vectors = np.reshape(region_values.values, (len(input.time), np.size(region_values.isel(time=0))))
         X = StandardScaler().fit_transform(X_vectors)
@@ -50,27 +52,31 @@ def clustering_temporal(data, method, n_clusters, cls):
 
         for n in range(0,n_clusters):
             folder = os.path.join(cls.base_path,'Clustering_temporal/', name_method)
-            group_clusters = output.groupby('cluster').mean(dim='time', keep_attrs=True)
-            plotting.xarray_plot(group_clusters.sel(cluster=n), path=folder, saving=True)
-            folder = os.path.join(cls.base_path,'Clustering_temporal/', name_method, str(n))
-            print folder
             if os.path.isdir(folder):
                 pass
             else:
                 os.makedirs(folder)
-            for t in output.sel(cluster=n).time_dates.values:
-                output.name = 'cluster_{}_{}'.format(n, str(t)[:7])
-                plotting.xarray_plot(output.sel(time_dates=t), path=folder, saving=True)
-
+            group_clusters = output.groupby('cluster').mean(dim='time', keep_attrs=True)
+            group_clusters.name = 'cluster_{}_{}'.format(n, input['2_metre_temperature'].values)
+            plotting.xarray_plot(group_clusters.sel(cluster=n), path=folder, saving=True)
+#            folder = os.path.join(cls.base_path,'Clustering_temporal/', name_method, str(n))
+#            print folder
+#            if os.path.isdir(folder):
+#                pass
+#            else:
+#                os.makedirs(folder)
+#            idx = np.where(output['cluster'] ==  n)[0]
+#            dates_in_cluster = output['time'].isel(time=idx).time_dates.values
+#            for t in dates_in_cluster:
+#                output.name = 'cluster_{}_{}'.format(n, str(t)[:7])
+#                plotting.xarray_plot(output.sel(time_dates=t), path=folder, saving=True)
         return output
-
-        
+  
     algorithm = cluster.__dict__[method]
-    print algorithm
     if method == 'KMeans':
         cluster_method = algorithm(n_clusters)
-        output = clustering_plotting(cluster_method, input)
         name_method = method
+        output = clustering_plotting(cluster_method, input)
     if method == 'AgglomerativeClustering':
         # linkage_method -- 'average', 'centroid', 'complete', 'median', 'single',
         #                   'ward', or 'weighted'. See 'doc linkage' for more info.
@@ -91,13 +97,13 @@ def clustering_temporal(data, method, n_clusters, cls):
 #%%
 cls = temperature
 methods = ['KMeans', 'AgglomerativeClustering', 'hierarchical']
-method = methods[1] ; n_clusters = 4
-data = anom.isel(time=np.array(np.where(anom['time.month']==6)).reshape(int(anom['time.year'].max()-anom['time.year'].min()+1)))
+method = methods[0] ; n_clusters = 4
+data = marray.isel(time=np.array(np.where(anom['time.month']==6)).reshape(int(anom['time.year'].max()-anom['time.year'].min()+1)))
 
 #%%
 output = clustering_temporal(data, method, n_clusters, temperature)
 plottable = output.groupby('cluster').mean(dim='time', keep_attrs=True) 
-#PlateCarree_timesteps(plottable.rename( {'cluster':'time'} ), temperature)
+PlateCarree_timesteps(plottable.rename( {'cluster':'time'} ), temperature, path='default', saving=True)
 #%%
 
 #%%
@@ -114,9 +120,6 @@ cwd = os.getcwd()
 runfile = os.path.join(cwd, 'saving_repository_to_Github.sh')
 subprocess.call(runfile)
 #%%
-data = clim.isel(time=np.array(np.where(anom['time.year']==1979)).reshape(3))
-PlateCarree_timesteps(data, temperature)
-
 
 # input data EOF
 region_values, region_coords = find_region(anom, region='EU')
@@ -129,10 +132,11 @@ z_djf = xr.open_dataset(filename)['z']
 # Compute anomalies by removing the time-mean.
 z_djf = z_djf - z_djf.mean(dim='time')
 
+
+
 eof_output = functions.EOF(data, neofs=4)
 eof_output = functions.EOF(region_values, neofs=4)
 PlateCarree_timesteps(eof_output.rename( {'mode':'time'}), temperature, cbar_mode='individual')
-functions.(region_values)
 plotting.xarray_plot(eof_output)
 
 exit()

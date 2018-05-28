@@ -12,10 +12,14 @@ def quickplot_numpyarray(data):
 def save_figure(data, path):
     import os
     import matplotlib.pyplot as plt
-    if 'path' in locals():
-        pass
-    else:
+#    if 'path' in locals():
+#        pass
+#    else:
+#        path = '/Users/semvijverberg/Downloads'
+    if path == 'default':
         path = '/Users/semvijverberg/Downloads'
+    else:
+        path = path
     import datetime
     today = datetime.datetime.today().strftime("%d-%m-%y_%H'%M")
     if data.name != '':
@@ -30,7 +34,7 @@ def save_figure(data, path):
     plt.savefig(os.path.join(path,name), format='jpeg', bbox_inches='tight')
 
 
-def xarray_plot(data, path, saving=False):
+def xarray_plot(data, path='default', saving=False):
     # from plotting import save_figure
     import matplotlib.pyplot as plt
     import cartopy.crs as ccrs
@@ -102,7 +106,7 @@ def find_region(data, region='EU'):
 
     return all_values, region_coords
 
-def PlateCarree_timesteps(data, cls, type='abs', cbar_mode='compare', region='EU', saving=False):
+def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='compare', region='EU', saving=False):
     import numpy as np
     import cartopy.crs as ccrs
     import cartopy.feature as cfeat
@@ -153,7 +157,9 @@ def PlateCarree_timesteps(data, cls, type='abs', cbar_mode='compare', region='EU
             unit = plottable.attrs['units']
         if plottable['longitude'][0] == 0. and plottable['longitude'][-1] - 360 < 5.:
             plottable = extend_longitude(plottable)
-        if 'anom' in data._name:
+        #Check if anomaly (around 0) field
+        if abs(plottable.mean())/( 4 * plottable.std() ) < 2:
+            print abs(plottable.mean())/( 3 * plottable.std() )
             if abs(min_region) > max_region:
                 max_region = abs(min_region) 
             else: 
