@@ -49,7 +49,7 @@ def xarray_plot(data, path, saving=False):
     ax = plt.axes(projection=proj)
     ax.coastlines()
     # ax.set_global()
-    data.plot.contourf(ax=ax, cmap=plt.cm.RdBu_r,
+    data.plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
                              transform=ccrs.PlateCarree(), add_colorbar=True)
     if saving == True:
         save_figure(data, path=path)

@@ -22,66 +22,78 @@ retrieve_ERA_i_field(temperature)
 marray, temperature = import_array(temperature, decode_cf=True, decode_coords=True)
 clim, anom, std = calc_anomaly(marray=marray, cls=temperature)
 
-
+#%%
 
 def clustering(data, method, n_clusters, cls):
     input = np.squeeze(data.isel(data.get_axis_num(cls.name)))
     import sklearn.cluster as cluster
     from sklearn.preprocessing import StandardScaler
     import seaborn as sns
-    region_values, region_coords = find_region(input.isel(time=0), region='EU')
-    output = np.repeat(region_values.expand_dims('time', axis=0).copy(), len(data.time), axis=0)
+    def clustering_plotting(cluster_method, input):
+        region_values, region_coords = find_region(input.isel(time=0), region='EU')
+        output = np.repeat(region_values.expand_dims('time', axis=0).copy(), len(data.time), axis=0)
+        output['time'] = data['time']
+        for t in data['time'].values:
+            # t = data['time'].values[0]
+            region_values, region_coords = find_region(input.sel(time=t),region='EU')
+            X_vectors = np.reshape(region_values.values, (np.size(region_values),  1))
+            # X_vectors = np.reshape(region_values, (shape[0]*shape[1], 2))
+            X = StandardScaler().fit_transform(X_vectors)
+            out_clus = cluster_method.fit(X)
+            # centroids = out_clus.cluster_centers_
+            labels = out_clus.labels_
+            # print np.max(labels)
+            lonlat_cluster = np.reshape(labels, region_values.shape)
+            idx = int(np.where(output['time'] ==  t)[0])
+            output[idx,:,:] = lonlat_cluster
 
-    output['time'] = data['time']
+        output.name = method + '_' + data.name
+        for t in data['time'].values[:3]:
+            folder = os.path.join(cls.base_path,'Clustering/' + method, str(t)[:7])
+            if os.path.isdir(folder):
+                pass
+            else:
+                os.makedirs(folder)
+            plotting.xarray_plot(output.sel(time=t), path=folder, saving=True)
+            region_values, region_coords = find_region(input.sel(time=t), region='EU')
+            plotting.xarray_plot(region_values, path=folder, saving=True)
+        return output
+
+        
     algorithm = cluster.__dict__[method]
     print algorithm
-    for t in data['time'].values:
-        # t = data['time'].values[0]
-        region_values, region_coords = find_region(input.sel(time=t),region='EU')
-        X_vectors = np.reshape(region_values.values, (np.size(region_values),  1))
-        # X_vectors = np.reshape(region_values, (shape[0]*shape[1], 2))
-        X = StandardScaler().fit_transform(X_vectors)
-        if method == 'KMeans':
-            out_clus = algorithm(n_clusters).fit(X)
-        if method == 'AgglomerativeClustering':
-            out_clus = algorithm(linkage='complete', n_clusters=n_clusters).fit(X)
-        elif method == 'DBSCAN':
-            out_clus = algorithm(eps=0.05, min_samples=3).fit(test)
-        elif method == 'hierarchical':
-            algorithm(n_clusters=n_clusters, affinity='euclidean', linkage='ward').fit(X)
-        # centroids = out_clus.cluster_centers_
-        labels = out_clus.labels_
-        # print np.max(labels)
-        lonlat_cluster = np.reshape(labels, region_values.shape)
-        idx = int(np.where(output['time'] ==  t)[0])
-        output[idx,:,:] = lonlat_cluster
-
-    output.name = method + '_' + data.name
-    for t in data['time'].values[:5]:
-        folder = os.path.join(cls.base_path,'Clustering/' + method, str(t)[:7])
-        if os.path.isdir(folder):
-            pass
-        else:
-            os.makedirs(folder)
-        functions.quicksave_ncdf(region_values, cls, path=folder, name=region_values.name)
-        plotting.xarray_plot(output.sel(time=t), path=folder, saving=True)
-        region_values, region_coords = find_region(input.sel(time=t), region='EU')
-        plotting.xarray_plot(region_values, path=folder, saving=True)
+    if method == 'KMeans':
+        cluster_method = algorithm(n_clusters)
+        output = clustering_plotting(cluster_method, input)
+    if method == 'AgglomerativeClustering':
+        # linkage_method -- 'average', 'centroid', 'complete', 'median', 'single',
+        #                   'ward', or 'weighted'. See 'doc linkage' for more info.
+        #                   'average' is standard.
+        linkage = ['ward','complete', 'average']
+        for link in linkage:
+            print link
+            cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
+            clustering_plotting(cluster_method, input)
+    folder = os.path.join(cls.base_path, 'Clustering', method)
+    functions.quicksave_ncdf(region_values, cls, path=folder, name=region_values.name)
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters)
+   
     return output
 
-
-
-methods = ['KMeans', 'DBSCAN','AgglomerativeClustering']
-method = methods[2] ; n_clusters = 4
+#%%
+cls = temperature
+methods = ['KMeans', 'AgglomerativeClustering', 'hierarchical']
+method = methods[1] ; n_clusters = 4
 data = anom.isel(time=np.array(np.where(anom['time.month']==6)).reshape(int(anom['time.year'].max()-anom['time.year'].min()+1)))
+#%%
 output = clustering(data, method, n_clusters, temperature)
 
+#%%
 
 data = clim.isel(time=np.array(np.where(anom['time.year']==1979)).reshape(3))
 PlateCarree_timesteps(data, temperature)
 
-# Changing
+
 
 # input data EOF
 region_values, region_coords = find_region(anom, region='EU')

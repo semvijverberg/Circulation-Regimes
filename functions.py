@@ -106,4 +106,56 @@ def quicksave_ncdf(data, cls, path, name):
     print('{} to path {}'.format(name, path))
     data.to_netcdf(os.path.join(path, name))
 
+def clustering_spatial(data, method, n_clusters, cls):
+    input = np.squeeze(data.isel(data.get_axis_num(cls.name)))
+    import sklearn.cluster as cluster
+    from sklearn.preprocessing import StandardScaler
+    import seaborn as sns
+    def clustering_plotting(cluster_method, input):
+        region_values, region_coords = find_region(input.isel(time=0), region='EU')
+        output = np.repeat(region_values.expand_dims('time', axis=0).copy(), len(data.time), axis=0)
+        output['time'] = data['time']
+        for t in data['time'].values:
+            # t = data['time'].values[0]
+            region_values, region_coords = find_region(input.sel(time=t),region='EU')
+            X_vectors = np.reshape(region_values.values, (np.size(region_values),  1))
+            X = StandardScaler().fit_transform(X_vectors)
+            out_clus = cluster_method.fit(X)
+            labels = out_clus.labels_
+            lonlat_cluster = np.reshape(labels, region_values.shape)
+            idx = int(np.where(output['time'] ==  t)[0])
+            output[idx,:,:] = lonlat_cluster
+
+        output.name = method + '_' + data.name
+        for t in data['time'].values[:3]:
+            folder = os.path.join(cls.base_path,'Clustering/' + method, str(t)[:7])
+            if os.path.isdir(folder):
+                pass
+            else:
+                os.makedirs(folder)
+            plotting.xarray_plot(output.sel(time=t), path=folder, saving=True)
+            region_values, region_coords = find_region(input.sel(time=t), region='EU')
+            plotting.xarray_plot(region_values, path=folder, saving=True)
+        return output   
+    algorithm = cluster.__dict__[method]
+    print algorithm
+    if method == 'KMeans':
+        cluster_method = algorithm(n_clusters)
+        output = clustering_plotting(cluster_method, input)
+    if method == 'AgglomerativeClustering':
+        # linkage_method -- 'average', 'centroid', 'complete', 'median', 'single',
+        #                   'ward', or 'weighted'. See 'doc linkage' for more info.
+        #                   'average' is standard.
+        linkage = ['ward','complete', 'average']
+        
+        for link in linkage:
+            method = 'AgglomerativeClustering' + '_' + link
+            print method
+            cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
+            clustering_plotting(cluster_method, input)
+    folder = os.path.join(cls.base_path, 'Clustering', method)
+    functions.quicksave_ncdf(input, cls, path=folder, name=region_values.name)
+    output.attrs['units'] = 'clusters, n = {}'.format(n_clusters) 
+    return output
+#%%
 # clim = xr.DataArray(np.zeros([steps_per_year, len(marray['latitude']), len(marray['longitude'])]), dims=('time', 'latitude', 'longitude'), coords=[months, marray['latitude'].values,marray['longitude'].values])

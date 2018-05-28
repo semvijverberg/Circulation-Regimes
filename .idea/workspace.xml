@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list id="250d1bc6-85e1-4c24-a26a-837b7c871f2c" name="Revert &quot;Object oriented programming: ask for variable cf code&quot;" comment="Revert &quot;Object oriented programming: ask for variable cf code&quot;&#10;&#10;This reverts commit 3dc01e3" />
-    <list id="a3396af7-e35d-4c10-b287-f493dc1c47d4" name="Revert &quot;&quot;Object oriented programming: + interactive console&quot;&quot;" comment="Revert &quot;&quot;Object oriented programming: + interactive console&quot;&quot;&#10;&#10;This reverts commit 2e6fe98" />
     <list id="5d84d20d-4985-4832-bdbe-e3abeb76a183" name="Default" comment="" />
     <list id="cc06459f-ef34-4ca9-9815-df09693795c4" name="retrieve_ERA_i_field with argparser" comment="retrieve_ERA_i_field with argparser" />
+    <list id="a3396af7-e35d-4c10-b287-f493dc1c47d4" name="Revert &quot;&quot;Object oriented programming: + interactive console&quot;&quot;" comment="Revert &quot;&quot;Object oriented programming: + interactive console&quot;&quot;&#10;&#10;This reverts commit 2e6fe98" />
+    <list id="250d1bc6-85e1-4c24-a26a-837b7c871f2c" name="Revert &quot;Object oriented programming: ask for variable cf code&quot;" comment="Revert &quot;Object oriented programming: ask for variable cf code&quot;&#10;&#10;This reverts commit 3dc01e3" />
     <list id="ac0028c9-4d91-4b34-9e4d-7f80daaf6e8d" name="Revert &quot;Revert &quot;Object oriented programming: ask for variable cf code&quot; Working 15:07&quot;" comment="Buidling functions executable with variable class information" />
     <list default="true" id="ae3f20f6-f850-4742-bd6d-d4f2e43cc913" name="Buidling functions executable with variable class information" comment="Buidling functions executable with variable class information">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -25,8 +24,8 @@
       <file leaf-file-name="main.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="150">
-              <caret line="84" lean-forward="true" selection-start-line="84" selection-end-line="84" />
+            <state relative-caret-position="343">
+              <caret line="58" column="44" lean-forward="true" selection-start-line="58" selection-start-column="44" selection-end-line="58" selection-end-column="44" />
             </state>
           </provider>
         </entry>
@@ -153,7 +152,7 @@
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds">
+  <component name="ProjectFrameBounds" fullScreen="true">
     <option name="y" value="23" />
     <option name="width" value="1440" />
     <option name="height" value="821" />
@@ -658,7 +657,7 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="0" y="23" width="1440" height="821" extended-state="0" />
+    <frame x="0" y="0" width="1440" height="900" extended-state="0" />
     <editor active="true" />
     <layout>
       <window_info content_ui="combo" id="Project" order="0" sideWeight="0.49322033" visible="true" weight="0.15010571" />
@@ -666,9 +665,9 @@
       <window_info anchor="bottom" id="Event Log" order="7" show_stripe_button="false" sideWeight="0.123568416" side_tool="true" weight="0.48232612" />
       <window_info anchor="bottom" id="Run" order="2" weight="0.43072703" />
       <window_info anchor="bottom" id="Version Control" order="10" sideWeight="0.73839664" weight="0.39181286" />
-      <window_info anchor="bottom" id="Python Console" order="8" sideWeight="0.8764316" weight="0.57988983" />
+      <window_info active="true" anchor="bottom" id="Python Console" order="8" sideWeight="0.8764316" visible="true" weight="0.3458283" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.24876674" />
-      <window_info active="true" anchor="bottom" id="Terminal" order="9" visible="true" weight="0.46143252" />
+      <window_info anchor="bottom" id="Terminal" order="9" weight="0.46143252" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.4099037" />
       <window_info id="Favorites" order="2" sideWeight="0.5067797" side_tool="true" weight="0.24312897" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
@@ -1199,8 +1198,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/main.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="150">
-          <caret line="84" lean-forward="true" selection-start-line="84" selection-end-line="84" />
+        <state relative-caret-position="343">
+          <caret line="58" column="44" lean-forward="true" selection-start-line="58" selection-start-column="44" selection-end-line="58" selection-end-column="44" />
         </state>
       </provider>
     </entry>
