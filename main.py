@@ -28,17 +28,15 @@ clim, anom, std = calc_anomaly(marray=marray, cls=temperature)
 def clustering_temporal(data, method, n_clusters, cls):
     input = np.squeeze(data.isel(data.get_axis_num(cls.name)))
     import sklearn.cluster as cluster
+    import xarray as xr
     from sklearn.preprocessing import StandardScaler
     import seaborn as sns
-    def clustering_plotting(cluster_method, input):
-#        region_values, region_coords = find_region(input.isel(time=slice(0,n_clusters)), region='EU')
-#        output = xr.DataArray(region_values, dims=('cluster', 'latitude', 'longitude'), 
-#                              coords=[range(0,n_clusters), output['latitude'].values,output['longitude'].values])
-        
+    def clustering_plotting(cluster_method, input):        
         region_values, region_coords = find_region(input,region='EU')
         print region_values.mean()
         output = region_values.copy()
         X_vectors = np.reshape(region_values.values, (len(input.time), np.size(region_values.isel(time=0))))
+        # Make sure field has mean of 0 and unit variance (std = 1)
         X = StandardScaler().fit_transform(X_vectors)
         out_clus = cluster_method.fit(X)
         labels = out_clus.labels_
@@ -89,7 +87,7 @@ def clustering_temporal(data, method, n_clusters, cls):
             cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
             output = clustering_plotting(cluster_method, input)
     folder = os.path.join(cls.base_path, 'Clustering_temporal', method)
-    functions.quicksave_ncdf(input, cls, path=folder, name=region_values.name)
+    functions.quicksave_ncdf(input, cls, path=folder, name=input.name)
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters)
    
     return output
@@ -97,8 +95,8 @@ def clustering_temporal(data, method, n_clusters, cls):
 #%%
 cls = temperature
 methods = ['KMeans', 'AgglomerativeClustering', 'hierarchical']
-method = methods[0] ; n_clusters = 4
-data = marray.isel(time=np.array(np.where(anom['time.month']==6)).reshape(int(anom['time.year'].max()-anom['time.year'].min()+1)))
+method = methods[1] ; n_clusters = 4
+data = anom.isel(time=np.array(np.where(anom['time.month']==6)).reshape(int(anom['time.year'].max()-anom['time.year'].min()+1)))
 
 #%%
 output = clustering_temporal(data, method, n_clusters, temperature)
@@ -114,6 +112,7 @@ output = functions.clustering_spatial(data, method, n_clusters, temperature)
 
 
 #%%
+# PlateCarree timesteps different output then xarray_plot..
 import os
 import subprocess
 cwd = os.getcwd()

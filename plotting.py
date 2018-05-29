@@ -73,6 +73,9 @@ def convert_longitude(data):
     import xarray as xr
     lon_above = data.longitude[np.where(data.longitude > 180)[0]]
     lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
+    # roll all values to the right for len(lon_above amount of steps)
+    data = data.roll(longitude=len(lon_above))
+    # adapt longitude values above 180 to negative values
     substract = lambda x, y: (x - y)
     lon_above = xr.apply_ufunc(substract, lon_above, 360)
     convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')

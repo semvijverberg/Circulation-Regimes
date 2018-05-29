@@ -57,23 +57,26 @@ def month_since_to_datetime(marray, cls):
 def calc_anomaly(marray, cls, q = 0.95):
     import xarray as xr
     import numpy as np
+    from sklearn.preprocessing import normalize
     print("calc_anomaly called for {}".format(cls.name, marray.shape))
-    steps_per_year = len(marray.sel(time=str(cls.startyear))['time'])
-    month_index = marray.sel(time=str(cls.startyear))['time.month'].values
-    months_string = {1:'jan', 2:'feb', 3:'mar', 4:'april', 5:'may', 6:'june', 7:'juli', 8:'aug', 9:'sep', 10:'okt', 11:'nov', 12:'dec'}
-    months=[]
-    for keys in month_index:
-        months.append(months_string[keys])
-    months_group = np.tile(months, len(marray['time.year'])/steps_per_year)
-    labels = xr.DataArray(months_group, [marray.coords['time']], name='labels')
-
-    clim = marray.groupby(labels).mean('time', keep_attrs=True).rename({'labels': 'time'})
+#    steps_per_year = len(marray.sel(time=str(cls.startyear))['time'])
+#    month_index = marray.sel(time=str(cls.startyear))['time.month'].values
+#    months_string = {1:'jan', 2:'feb', 3:'mar', 4:'april', 5:'may', 6:'june', 7:'juli', 8:'aug', 9:'sep', 10:'okt', 11:'nov', 12:'dec'}
+#    months=[]
+#    for keys in month_index:
+#        months.append(months_string[keys])
+#    months_group = np.tile(months, len(marray['time.year'])/steps_per_year)
+#    labels = xr.DataArray(months_group, [marray.coords['time']], name='labels')
+#
+#    clim = marray.groupby(labels).mean('time', keep_attrs=True).rename({'labels': 'time'})
+    clim = marray.groupby('time.month').mean('time')
     clim.name = 'clim_' + marray.name
-    substract = lambda x, y: (x - y)
-    anom = xr.apply_ufunc(substract, marray, np.tile(clim,(1,(cls.endyear+1-cls.startyear),1,1)), keep_attrs=True)
-    anom.name = 'anom_'
-    std = anom.groupby(labels).reduce(np.percentile, dim='time', keep_attrs=True, q=q).rename({'labels': 'time'})
-    std.name = 'std_'
+    anom = marray.groupby('time.month') - clim
+#    substract = lambda x, y: (x - y)
+#    anom = xr.apply_ufunc(substract, marray, np.tile(clim,(1,(cls.endyear+1-cls.startyear),1,1)), keep_attrs=True)
+    anom.name = 'anom_' + marray.name
+    std = anom.groupby('time.month').reduce(np.percentile, dim='time', keep_attrs=True, q=q)
+    std.name = 'std_' + marray.name
     return clim, anom, std
 
 def EOF(data, neofs=1, center=False, weights=None):

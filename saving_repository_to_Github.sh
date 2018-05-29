@@ -7,10 +7,11 @@ git add $current_dir #All files in directory staged for commit
 git commit -m "Default"
 git push -u
 git status
-git remote -v
+
 mkdir funnydir
 exit
 
+# git remote -v
 # Print log of commits
 # git log --pretty=format:"%h - %an, %ar : %s"
 # git log --pretty=format:"%h %s" --graph
