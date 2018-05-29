@@ -5,6 +5,7 @@ print $current_dir
 print "yoo Sem what up - different"
 git add $current_dir #All files in directory staged for commit
 git commit -m "Default"
+git push -u
 git status
 git remote -v
 mkdir funnydir
