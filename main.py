@@ -9,7 +9,7 @@ retrieve_ERA_i_field = retrieve_ERA_i.retrieve_ERA_i_field
 import_array = functions.import_array
 calc_anomaly = functions.calc_anomaly
 PlateCarree_timesteps = plotting.PlateCarree_timesteps
-PlateCarree = plotting.PlateCarree
+xarray_plot = plotting.xarray_plot
 LamberConformal = plotting.LamberConformal
 find_region = plotting.find_region
 
@@ -89,8 +89,8 @@ def clustering_temporal(data, method, n_clusters, cls):
     folder = os.path.join(cls.base_path, 'Clustering_temporal', method)
     functions.quicksave_ncdf(input, cls, path=folder, name=input.name)
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters)
-   
-    return output
+    data['time'] = output['time']
+    return output, data
 
 #%%
 cls = temperature
@@ -99,11 +99,15 @@ method = methods[1] ; n_clusters = 4
 data = anom.isel(time=np.array(np.where(anom['time.month']==6)).reshape(int(anom['time.year'].max()-anom['time.year'].min()+1)))
 
 #%%
-output = clustering_temporal(data, method, n_clusters, temperature)
-plottable = output.groupby('cluster').mean(dim='time', keep_attrs=True) 
+output, data_cluster = clustering_temporal(data, method, n_clusters, temperature)
+plottable = data_cluster.groupby('cluster').mean(dim='time', keep_attrs=True) 
 PlateCarree_timesteps(plottable.rename( {'cluster':'time'} ), temperature, path='default', saving=True)
-#%%
 
+
+
+#dates_cluster = {}
+#for cluster in output.groupby('cluster').mean(dim='time').cluster.values:
+#    dates_cluster[str(cluster)] = output['time_dates'].sel(cluster=cluster).values
 #%%
 output = functions.clustering_spatial(data, method, n_clusters, temperature)
 
@@ -112,7 +116,7 @@ output = functions.clustering_spatial(data, method, n_clusters, temperature)
 
 
 #%%
-# PlateCarree timesteps different output then xarray_plot..
+# ValueError: dimension '2_metre_temperature' already exists as a scalar variable
 import os
 import subprocess
 cwd = os.getcwd()
