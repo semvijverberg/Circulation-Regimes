@@ -26,8 +26,9 @@ clim, anom, std = calc_anomaly(marray=marray, cls=temperature)
 
 #%%
 
-def clustering_temporal(data, method, n_clusters, cls):
-    input = np.squeeze(data.isel(data.get_axis_num(cls.name)))
+def clustering_temporal(data, method, n_clusters, cls, month):
+    input = data.sel(month=month).drop('time_date')
+#    input = np.squeeze(input.isel(data.get_axis_num(cls.name))).drop(cls.name)
     import sklearn.cluster as cluster
     import xarray as xr
     from sklearn.preprocessing import StandardScaler
@@ -35,17 +36,18 @@ def clustering_temporal(data, method, n_clusters, cls):
     def clustering_plotting(cluster_method, input):        
         region_values, region_coords = find_region(input,region='EU')
         print region_values.mean()
-        output = region_values.copy()
         X_vectors = np.reshape(region_values.values, (len(input.time), np.size(region_values.isel(time=0))))
         # Make sure field has mean of 0 and unit variance (std = 1)
         X = StandardScaler().fit_transform(X_vectors)
         out_clus = cluster_method.fit(X)
-        labels = out_clus.labels_
+        labels = out_clus.labels_       
+        output = region_values.copy()
         labels_clusters = xr.DataArray(labels, [input.coords['time'][:]], name='time')
         labels_dates = xr.DataArray(input.time.values, [input.coords['time'][:]], name='time')
         output['cluster'] = labels_clusters
-        output['time_dates'] = labels_dates
-        output = output.set_index(time=['cluster','time_dates'])
+        output['time_date'] = labels_dates
+        output = output.set_index(time=['cluster','time_date'])
+        
         output.name = method + '_' + data.name
 #        functions.quicksave_ncdf(output, cls, path=folder, name=output.name)
 
@@ -96,11 +98,11 @@ def clustering_temporal(data, method, n_clusters, cls):
 #%%
 cls = temperature
 methods = ['KMeans', 'AgglomerativeClustering', 'hierarchical']
-method = methods[1] ; n_clusters = 4
-data = anom.sel(month=6)
+method = methods[1] ; n_clusters = 4; month=6
+data = anom
 
 #%%
-output, data_cluster = clustering_temporal(data, method, n_clusters, temperature)
+output, data_cluster = clustering_temporal(data, method, n_clusters, temperature, month=6)
 plottable = data_cluster.groupby('cluster').mean(dim='time', keep_attrs=True) 
 PlateCarree_timesteps(plottable.rename( {'cluster':'time'} ), temperature, path='default', saving=True)
 
