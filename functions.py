@@ -53,29 +53,30 @@ def month_since_to_datetime(marray, cls):
     cls.datelist = datelist
     return cls
 
-
+def normalize(marray, with_mean=True, with_std=True):
+    from sklearn.preprocessing import StandardScaler
+    import numpy as np
+    output = marray.copy()
+    vector_marray_to_norm = np.reshape(marray.values, (len(marray.time), np.size(marray.isel(time=0))))
+    vectorn_marray_norm = StandardScaler(with_mean=with_mean, with_std=with_std).fit_transform(vector_marray_to_norm)
+    output.values = np.reshape(vectorn_marray_norm, marray.shape)
+    return output
+    
 def calc_anomaly(marray, cls, q = 0.95):
     import xarray as xr
     import numpy as np
-    from sklearn.preprocessing import normalize
     print("calc_anomaly called for {}".format(cls.name, marray.shape))
-#    steps_per_year = len(marray.sel(time=str(cls.startyear))['time'])
-#    month_index = marray.sel(time=str(cls.startyear))['time.month'].values
-#    months_string = {1:'jan', 2:'feb', 3:'mar', 4:'april', 5:'may', 6:'june', 7:'juli', 8:'aug', 9:'sep', 10:'okt', 11:'nov', 12:'dec'}
-#    months=[]
-#    for keys in month_index:
-#        months.append(months_string[keys])
-#    months_group = np.tile(months, len(marray['time.year'])/steps_per_year)
-#    labels = xr.DataArray(months_group, [marray.coords['time']], name='labels')
-#
-#    clim = marray.groupby(labels).mean('time', keep_attrs=True).rename({'labels': 'time'})
-    clim = marray.groupby('time.month').mean('time')
+    clim = marray.groupby('time.month').mean('time', keep_attrs=True)
     clim.name = 'clim_' + marray.name
     anom = marray.groupby('time.month') - clim
+    anom['time_multi'] = anom['time']
+    anom['time_dates'] = anom['time']
+    anom = anom.set_index(time_multi=['time_dates','month'])
 #    substract = lambda x, y: (x - y)
 #    anom = xr.apply_ufunc(substract, marray, np.tile(clim,(1,(cls.endyear+1-cls.startyear),1,1)), keep_attrs=True)
     anom.name = 'anom_' + marray.name
     std = anom.groupby('time.month').reduce(np.percentile, dim='time', keep_attrs=True, q=q)
+#    std = anom.groupby('time.month').reduce(np.percentile, dim='time', keep_attrs=True, q=q)
     std.name = 'std_' + marray.name
     return clim, anom, std
 

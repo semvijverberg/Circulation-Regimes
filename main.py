@@ -1,4 +1,5 @@
 import os
+os.chdir('/Users/semvijverberg/PycharmProjects/Circulation-Regimes')
 import what_variable
 import retrieve_ERA_i
 import functions
@@ -89,14 +90,14 @@ def clustering_temporal(data, method, n_clusters, cls):
     folder = os.path.join(cls.base_path, 'Clustering_temporal', method)
     functions.quicksave_ncdf(input, cls, path=folder, name=input.name)
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters)
-    data['time'] = output['time']
-    return output, data
+    input['time'] = output['time']
+    return output, input
 
 #%%
 cls = temperature
 methods = ['KMeans', 'AgglomerativeClustering', 'hierarchical']
 method = methods[1] ; n_clusters = 4
-data = anom.isel(time=np.array(np.where(anom['time.month']==6)).reshape(int(anom['time.year'].max()-anom['time.year'].min()+1)))
+data = anom.sel(month=6)
 
 #%%
 output, data_cluster = clustering_temporal(data, method, n_clusters, temperature)

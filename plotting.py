@@ -109,14 +109,27 @@ def find_region(data, region='EU'):
 
     return all_values, region_coords
 
+from matplotlib.colors import Normalize
+class MidpointNormalize(Normalize):
+    import numpy as np
+    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+        self.midpoint = midpoint
+        Normalize.__init__(self, vmin, vmax, clip)
+
+    def __call__(self, value, clip=None):
+        # I'm ignoring masked values and all kinds of edge cases to make a
+        # simple example...
+        x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+        return np.ma.masked_array(np.interp(value, x, y))
+
+
 def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='compare', region='EU', saving=False):
     import numpy as np
     import cartopy.crs as ccrs
     import cartopy.feature as cfeat
     from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
     import matplotlib.pyplot as plt
-    import matplotlib.gridspec as gridspec
-    import matplotlib.colors as colors
+    import matplotlib.gridspec as gridspec  
     from plotting import extend_longitude
     if len(data['time']) <= 4:
         pass
@@ -148,6 +161,7 @@ def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='comp
         if cbar_mode == 'compare':
             pass
         elif cbar_mode == 'individual':
+            print cbar_mode
             values_region = values_region.sel(time=i)
         if type=='norm':
             std_region = np.std(values_region).values
@@ -162,15 +176,11 @@ def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='comp
             plottable = extend_longitude(plottable)
         #Check if anomaly (around 0) field
         if abs(plottable.mean())/( 4 * plottable.std() ) < 2:
-            print abs(plottable.mean())/( 3 * plottable.std() )
-            if abs(min_region) > max_region:
-                max_region = abs(min_region) 
-            else: 
-                min_region = -max_region
+            norm = MidpointNormalize(midpoint=0, vmin=min_region, vmax=max_region)
         lons, lats = np.meshgrid(plottable['longitude'].values, plottable['latitude'].values)
         # norm = colors.BoundaryNorm(boundaries=np.linspace(round(min_region),round(max_region),11), ncolors=256)
-        map = ax.pcolormesh(lons, lats, plottable, transform=ccrs.PlateCarree(), vmin=min_region, vmax=max_region, cmap=plt.cm.coolwarm)
-        ax.set_title(np.str(i).split(':')[0]) ; cb = plt.colorbar(map, ax=ax, orientation='horizontal', use_gridspec=True, fraction = 0.1, pad=0.1, label=unit)
+        map = ax.pcolormesh(lons, lats, plottable, transform=ccrs.PlateCarree(), norm=norm, cmap=plt.cm.coolwarm)
+        ax.set_title(np.str(i).split(':')[0]) ; plt.colorbar(map, ax=ax, orientation='horizontal', use_gridspec=True, fraction = 0.1, pad=0.1, label=unit)
         # cb.set_label('label', rotation=0, position=(0.5, 0.5))
         gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
         gl.xlabels_top = False ; gl.xformatter = LONGITUDE_FORMATTER
