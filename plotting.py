@@ -54,18 +54,18 @@ def xarray_plot(data, path='default', saving=False):
     ax = plt.axes(projection=proj)
     ax.coastlines()
     # ax.set_global()
-    data.plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
+    plot = data.plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
                              transform=ccrs.PlateCarree(), add_colorbar=True)
     if saving == True:
         save_figure(data, path=path)
     plt.show()
 
-def extend_longitude(plottable):
+def extend_longitude(data):
     import xarray as xr
     import numpy as np
-    plottable = xr.concat([plottable, plottable.sel(longitude=plottable.longitude[:1])], dim='longitude').to_dataset(name="ds")
+    plottable = xr.concat([data, data.sel(longitude=data.longitude[:1])], dim='longitude').to_dataset(name="ds")
     plottable["longitude"] = np.linspace(0,360, len(plottable.longitude))
-    plottable = plottable["ds"]
+    plottable = plottable.to_array(dim='ds')
     return plottable
 
 def convert_longitude(data):
@@ -111,12 +111,12 @@ def find_region(data, region='EU'):
 
 from matplotlib.colors import Normalize
 class MidpointNormalize(Normalize):
-    import numpy as np
     def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
         self.midpoint = midpoint
         Normalize.__init__(self, vmin, vmax, clip)
 
     def __call__(self, value, clip=None):
+        import numpy as np
         # I'm ignoring masked values and all kinds of edge cases to make a
         # simple example...
         x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]

@@ -103,8 +103,8 @@ data = anom
 
 #%%
 output, data_cluster = clustering_temporal(data, method, n_clusters, temperature, month=6)
-plottable = data_cluster.groupby('cluster').mean(dim='time', keep_attrs=True) 
-PlateCarree_timesteps(plottable.rename( {'cluster':'time'} ), temperature, path='default', saving=True)
+plottable = data_cluster.groupby('cluster').mean(dim='time', keep_attrs=True).rename( {'cluster':'time'} )
+PlateCarree_timesteps(plottable, temperature, path='default', saving=True)
 
 
 

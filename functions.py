@@ -72,6 +72,7 @@ def calc_anomaly(marray, cls, q = 0.95):
     anom['time_multi'] = anom['time']
     anom['time_date'] = anom['time']
     anom = anom.set_index(time_multi=['time_date','month'])
+    anom.attrs = marray.attrs
 #    substract = lambda x, y: (x - y)
 #    anom = xr.apply_ufunc(substract, marray, np.tile(clim,(1,(cls.endyear+1-cls.startyear),1,1)), keep_attrs=True)
     anom.name = 'anom_' + marray.name
