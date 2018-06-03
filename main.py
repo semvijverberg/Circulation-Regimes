@@ -47,8 +47,9 @@ def clustering_temporal(data, method, n_clusters, cls, month):
         output['cluster'] = labels_clusters
         output['time_date'] = labels_dates
         output = output.set_index(time=['cluster','time_date'])
-        
         output.name = method + '_' + data.name
+        Nocluster = {}
+        group_clusters = output.groupby('cluster').mean(dim='time', keep_attrs=True)
 #        functions.quicksave_ncdf(output, cls, path=folder, name=output.name)
 
         for n in range(0,n_clusters):
@@ -57,9 +58,13 @@ def clustering_temporal(data, method, n_clusters, cls, month):
                 pass
             else:
                 os.makedirs(folder)
-            group_clusters = output.groupby('cluster').mean(dim='time', keep_attrs=True)
-            group_clusters.name = 'cluster_{}_{}'.format(n, input['2_metre_temperature'].values)
+            perc_of_cluster = str(100*float(output.sel(cluster=n).time_date.size)/float(input.time.size))[:2]+'%'
+            Nocluster['cluster_{}'.format(n)] = perc_of_cluster
+            group_clusters.name = 'cluster_{}_{}_{}'.format(n, perc_of_cluster, str(input['2_metre_temperature'].values[0]))
             plotting.xarray_plot(group_clusters.sel(cluster=n), path=folder, saving=True)
+        group_clusters.name = name_method.replace('/','_') + '_' + input.name
+        PlateCarree_timesteps(group_clusters.rename({'cluster':'time'}), temperature, path=folder, saving=True)
+
 #            folder = os.path.join(cls.base_path,'Clustering_temporal/', name_method, str(n))
 #            print folder
 #            if os.path.isdir(folder):
@@ -83,7 +88,7 @@ def clustering_temporal(data, method, n_clusters, cls, month):
         #                   'ward', or 'weighted'. See 'doc linkage' for more info.
         #                   'average' is standard.
         linkage = ['ward','complete', 'average']
-        linkage = ['ward']
+#        linkage = ['ward']
         for link in linkage:
             name_method = os.path.join(method, link)
             print name_method
@@ -92,8 +97,7 @@ def clustering_temporal(data, method, n_clusters, cls, month):
     folder = os.path.join(cls.base_path, 'Clustering_temporal', method)
     functions.quicksave_ncdf(input, cls, path=folder, name=input.name)
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters)
-    input['time'] = output['time']
-    return output, input
+    return output, data_cluster
 
 #%%
 cls = temperature
@@ -103,14 +107,8 @@ data = anom
 
 #%%
 output, data_cluster = clustering_temporal(data, method, n_clusters, temperature, month=6)
-plottable = data_cluster.groupby('cluster').mean(dim='time', keep_attrs=True).rename( {'cluster':'time'} )
-PlateCarree_timesteps(plottable, temperature, path='default', saving=True)
 
 
-
-#dates_cluster = {}
-#for cluster in output.groupby('cluster').mean(dim='time').cluster.values:
-#    dates_cluster[str(cluster)] = output['time_dates'].sel(cluster=cluster).values
 #%%
 output = functions.clustering_spatial(data, method, n_clusters, temperature)
 
@@ -119,7 +117,7 @@ output = functions.clustering_spatial(data, method, n_clusters, temperature)
 
 
 #%%
-# ValueError: dimension '2_metre_temperature' already exists as a scalar variable
+# ValueError: coordinate time_multi has dimensions ('time_multi',), but these are not a subset of the DataArray dimensions ('ds', '2_metre_temperature', u'time', u'latitude', u'longitude')
 import os
 import subprocess
 cwd = os.getcwd()

@@ -124,6 +124,7 @@ class MidpointNormalize(Normalize):
 
 
 def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='compare', region='EU', saving=False):
+#    path='default'; type='abs'; cbar_mode='compare'; region='EU'; saving=False
     import numpy as np
     import cartopy.crs as ccrs
     import cartopy.feature as cfeat
@@ -132,17 +133,18 @@ def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='comp
     import matplotlib.gridspec as gridspec  
     from plotting import extend_longitude
     if len(data['time']) <= 4:
+        input = data
         pass
     else:
         "select less time steps to plot"
-        data = data.isel(time=[0,1,2,3])
+        input = data.isel(time=[0,1,2,3])
     fig = plt.figure(figsize=(10, 8))
-    for i in data['time'].values:
+    for i in input['time'].values:
         print i
-        rows = 2 if len(data['time']) / 2. > 1 else 1
-        columns = int(len(data['time'])/rows + len(data['time']) % float(rows))
+        rows = 2 if len(input['time']) / 2. > 1 else 1
+        columns = int(len(input['time'])/rows + len(input['time']) % float(rows))
         gs = gridspec.GridSpec(rows, columns)
-        fig_grid = np.concatenate([data['time'].values, np.array([np.datetime64('1900-01-01')])]) if len(data['time']) % float(rows) != 0 else data['time'].values
+        fig_grid = np.concatenate([input['time'].values, np.array([np.datetime64('1900-01-01')])]) if len(input['time']) % float(rows) != 0 else input['time'].values
         r,c = np.where(fig_grid.reshape((gs._nrows,gs._ncols)) == i)[0:2]
         proj = ccrs.PlateCarree()
         # proj = ccrs.Mollweide()
@@ -152,10 +154,10 @@ def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='comp
         # ax.add_feature(cfeat.LAND); # ax.add_feature(cfeat.OCEAN) # ax.add_feature(cfeat.LAKES, alpha=0.5)
         ax.add_feature(cfeat.BORDERS, linestyle=':')
         if region == 'global':
-            values_region = data
+            values_region = input
         else:
             region = 'EU'
-            values_region, region_coords = find_region(data, region=region)
+            values_region, region_coords = find_region(input, region=region)
             ax.set_xlim(region_coords[0], region_coords[1])  # west lon, east_lon
             ax.set_ylim(region_coords[2], region_coords[3])  # south_lat, north_lat
         if cbar_mode == 'compare':
@@ -166,27 +168,28 @@ def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='comp
         if type=='norm':
             std_region = np.std(values_region).values
             min_region = np.min(values_region/std_region).values ; max_region = np.max(values_region/std_region).values
-            plottable = np.squeeze(data.sel(time=i)/std_region)
+            plottable = np.squeeze(input.sel(time=i)/std_region)
             unit = r"$\sigma$ "+"= {:}".format(round(std_region,1))
         elif type == 'abs':
             min_region = np.min(values_region) ; max_region = np.max(values_region)
-            plottable = np.squeeze(data.sel(time=i))
+            plottable = np.squeeze(input.sel(time=i))
             unit = plottable.attrs['units']
         if plottable['longitude'][0] == 0. and plottable['longitude'][-1] - 360 < 5.:
-            plottable = extend_longitude(plottable)
+#            plottable = extend_longitude(plottable)
+            plottable = convert_longitude(plottable)
         #Check if anomaly (around 0) field
         if abs(plottable.mean())/( 4 * plottable.std() ) < 2:
             norm = MidpointNormalize(midpoint=0, vmin=min_region, vmax=max_region)
         lons, lats = np.meshgrid(plottable['longitude'].values, plottable['latitude'].values)
         # norm = colors.BoundaryNorm(boundaries=np.linspace(round(min_region),round(max_region),11), ncolors=256)
-        map = ax.pcolormesh(lons, lats, plottable, transform=ccrs.PlateCarree(), norm=norm, cmap=plt.cm.coolwarm)
+        map = ax.pcolormesh(lons, lats, np.squeeze(plottable), transform=ccrs.PlateCarree(), norm=norm, cmap=plt.cm.coolwarm)
         ax.set_title(np.str(i).split(':')[0]) ; plt.colorbar(map, ax=ax, orientation='horizontal', use_gridspec=True, fraction = 0.1, pad=0.1, label=unit)
         # cb.set_label('label', rotation=0, position=(0.5, 0.5))
         gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
         gl.xlabels_top = False ; gl.xformatter = LONGITUDE_FORMATTER
         gl.ylabels_right= False ; gl.yformatter = LATITUDE_FORMATTER
     if saving == True:
-        save_figure(data, path=path)
+        save_figure(input, path=path)
     plt.show()
         
 
@@ -219,7 +222,7 @@ def PlateCarree(plottable, valueformat='abs', rows=1, columns=1, r=0, c=0, regio
         std_region = np.std(values_region).values
         min_region = np.min(values_region / std_region).values
         max_region = np.max(values_region / std_region).values
-        plottable = np.squeeze(data / std_region)
+        plottable = np.squeeze(input / std_region)
         unit = r"T2m $\sigma$ " + "= {:}".format(round(std_region, 1))
     elif valueformat == 'abs':
         print "absolute"
@@ -245,7 +248,7 @@ def PlateCarree(plottable, valueformat='abs', rows=1, columns=1, r=0, c=0, regio
     gl.ylabels_right = False;
     gl.yformatter = LATITUDE_FORMATTER
 
-def LamberConformal(data, cls, west_lon=-120, east_lon=-70, south_lat=20, north_lat=50):
+def LamberConformal(input, cls, west_lon=-120, east_lon=-70, south_lat=20, north_lat=50):
     import cartopy.crs as ccrs
     import cartopy.feature as cfeat
     import matplotlib.gridspec as gridspec

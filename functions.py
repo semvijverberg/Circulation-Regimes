@@ -29,7 +29,7 @@ def import_array(cls, decode_cf=True, decode_coords=True):
             pass
     marray.attrs['units'] = cls.units
     marray.attrs['dataset'] = cls.dataset
-    marray.name = cls.name
+    marray.name = str(marray[cls.name].values[0])
     print("import array {}".format(cls.name))
     if 'units' in marray.time.attrs:
         if marray.time.attrs['units'] == 'months since 1861-01-01':
