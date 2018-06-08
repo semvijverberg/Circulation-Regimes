@@ -11,6 +11,35 @@ import plotting
 
 
 
+def import_array_monthly(cls, decode_cf=True, decode_coords=True):
+    import xarray as xr
+    import numpy as np
+    import os
+    # load in file
+    file_path = os.path.join(cls.base_path, 'input', cls.filename)
+    ncdf = xr.open_dataset(file_path, decode_cf=True, decode_coords=True, decode_times=False)
+    marray = ncdf.to_array(file_path).rename(({file_path: cls.name.replace(' ', '_')}))
+    marray.attrs['units'] = cls.units
+    for dims in marray.dims:
+        if dims == 'lon':
+            marray = marray.rename(({'lon': 'longitude'}))
+        if dims == 'lat':
+            marray = marray.rename(({'lat': 'latitude'}))
+        else:
+            pass
+    marray.attrs['units'] = cls.units
+    marray.attrs['dataset'] = cls.dataset
+    marray.name = str(marray[cls.name].values[0])
+    print("import array {}".format(cls.name))
+    if 'units' in marray.time.attrs:
+        if marray.time.attrs['units'] == 'months since 1861-01-01':
+            print('original timeformat: months since 1861-01-01')
+            cls = month_since_to_datetime(marray, cls)
+        if marray.time.attrs['units'] == 'hours since 1900-01-01 00:00:0.0':
+            marray['time'] = cls.dates_np
+            print("Taken numpy dates from what variable function, check time units")
+    return marray, cls
+
 def import_array(cls, decode_cf=True, decode_coords=True):
     import xarray as xr
     import numpy as np

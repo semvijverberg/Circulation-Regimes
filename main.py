@@ -17,7 +17,7 @@ find_region = plotting.find_region
 
 # assign instance
 temperature = Variable(name='2_metre_temperature', dataset='ERA-i', var_cf_code='167.128', levtype='sfc', lvllist=0,
-                       startyear=1979, endyear=2017, startmonth=6, endmonth=8, grid='2.5/2.5', stream='mnth', units='K')
+                       startyear=1979, endyear=2017, startmonth=6, endmonth=8, grid='2.5/2.5', stream='oper', units='K')
 # Download variable
 retrieve_ERA_i_field(temperature)
 marray, temperature = import_array(temperature, decode_cf=True, decode_coords=True)
@@ -26,7 +26,7 @@ clim, anom, std = calc_anomaly(marray=marray, cls=temperature)
 
 #%%
 
-def clustering_temporal(data, method, n_clusters, cls, month):
+def clustering_temporal(data, method, n_clusters, cls, region, month):
     input = data.sel(month=month).drop('time_date')
 #    input = np.squeeze(input.isel(data.get_axis_num(cls.name))).drop(cls.name)
     import sklearn.cluster as cluster
@@ -34,7 +34,7 @@ def clustering_temporal(data, method, n_clusters, cls, month):
     from sklearn.preprocessing import StandardScaler
     import seaborn as sns
     def clustering_plotting(cluster_method, input):        
-        region_values, region_coords = find_region(input,region='EU')
+        region_values, region_coords = find_region(input,region=region)
         print region_values.mean()
         X_vectors = np.reshape(region_values.values, (len(input.time), np.size(region_values.isel(time=0))))
         # Make sure field has mean of 0 and unit variance (std = 1)
@@ -63,7 +63,7 @@ def clustering_temporal(data, method, n_clusters, cls, month):
             group_clusters.name = 'cluster_{}_{}_{}'.format(n, perc_of_cluster, str(input['2_metre_temperature'].values[0]))
             plotting.xarray_plot(group_clusters.sel(cluster=n), path=folder, saving=True)
         group_clusters.name = name_method.replace('/','_') + '_' + input.name
-        PlateCarree_timesteps(group_clusters.rename({'cluster':'time'}), temperature, path=folder, saving=True)
+        PlateCarree_timesteps(group_clusters.rename({'cluster':'time'}), temperature, path=folder, region=region, saving=True)
 
 #            folder = os.path.join(cls.base_path,'Clustering_temporal/', name_method, str(n))
 #            print folder
@@ -97,7 +97,7 @@ def clustering_temporal(data, method, n_clusters, cls, month):
     folder = os.path.join(cls.base_path, 'Clustering_temporal', method)
     functions.quicksave_ncdf(input, cls, path=folder, name=input.name)
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters)
-    return output, data_cluster
+    return output
 
 #%%
 cls = temperature
@@ -106,18 +106,13 @@ method = methods[1] ; n_clusters = 4; month=6
 data = anom
 
 #%%
-output, data_cluster = clustering_temporal(data, method, n_clusters, temperature, month=6)
-
+output = clustering_temporal(data, method, n_clusters, temperature, region='U.S.', month=6)
 
 #%%
 output = functions.clustering_spatial(data, method, n_clusters, temperature)
 
 
-# small changes blabla
-
-
 #%%
-# ValueError: coordinate time_multi has dimensions ('time_multi',), but these are not a subset of the DataArray dimensions ('ds', '2_metre_temperature', u'time', u'latitude', u'longitude')
 import os
 import subprocess
 cwd = os.getcwd()

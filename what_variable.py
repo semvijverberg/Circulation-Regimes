@@ -16,6 +16,7 @@ class Variable:
     """
     from datetime import datetime, timedelta
     import pandas as pd
+    import calendar
     # below is a class variable
 
     ecmwf_website = 'http://apps.ecmwf.int/codes/grib/param-db'
@@ -40,18 +41,32 @@ class Variable:
         self.stream = stream
         self.units = units
         self.dataset = dataset
-
-
+        if stream == 'oper':
+            time_ana = "00:00:00/06:00:00/12:00:00/18:00:00"
+        else:
+            time_ana = "00:00:00"
+        self.time_ana = time_ana 
+        
+        days_in_month = dict( {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30, 10:31, 11:30, 12:31} )
         start = Variable.datetime(self.startyear, self.startmonth, 1)
-        end = Variable.datetime(self.endyear, self.endmonth, 1)
+
         datelist_str = [start.strftime('%Y-%m-%d')]
-        while start <= end:
-            if start.month < end.month:
-                start += Variable.timedelta(days=31)
-                datelist_str.append(Variable.datetime(start.year, start.month, 1).strftime('%Y-%m-%d'))
-            else:
-                start = Variable.datetime(start.year+1, self.startmonth, 1)
-                datelist_str.append(Variable.datetime(start.year, start.month, 1).strftime('%Y-%m-%d'))
+        if self.stream == 'oper':
+            end = Variable.datetime(self.endyear, self.endmonth, days_in_month[self.endmonth])
+            while start < end:          
+                start += Variable.timedelta(days=1)
+                datelist_str.append(start.strftime('%Y-%m-%d'))
+                if start.month == end.month and start.day == days_in_month[self.endmonth] and start.year != self.endyear:
+                    start = Variable.datetime(start.year+1, self.startmonth, 1)
+                    datelist_str.append(start.strftime('%Y-%m-%d'))  
+        elif self.stream == 'moda' or 'mnth':
+            end = Variable.datetime(self.endyear, self.endmonth, 1)
+            while start < end:          
+                start += Variable.timedelta(days=days_in_month[start.month])
+                datelist_str.append(start.strftime('%Y-%m-%d'))
+                if start.month == end.month and start.year != self.endyear:
+                    start = Variable.datetime(start.year+1, self.startmonth, 1)
+                    datelist_str.append(start.strftime('%Y-%m-%d'))             
         self.datelist_str = datelist_str
 
         # Convert to datetime datelist

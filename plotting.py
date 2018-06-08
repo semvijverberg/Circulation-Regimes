@@ -123,8 +123,8 @@ class MidpointNormalize(Normalize):
         return np.ma.masked_array(np.interp(value, x, y))
 
 
-def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='compare', region='EU', saving=False):
-#    path='default'; type='abs'; cbar_mode='compare'; region='EU'; saving=False
+def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='compare', region='U.S.', saving=False):
+#    path='default'; type='abs'; cbar_mode='compare'; region='U.S.'; saving=False
     import numpy as np
     import cartopy.crs as ccrs
     import cartopy.feature as cfeat
@@ -155,11 +155,10 @@ def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='comp
         ax.add_feature(cfeat.BORDERS, linestyle=':')
         if region == 'global':
             values_region = input
-        else:
-            region = 'EU'
-            values_region, region_coords = find_region(input, region=region)
+        elif region == 'EU' or region == 'U.S.':
+            values_region, region_coords = find_region(input, region=region)    
             ax.set_xlim(region_coords[0], region_coords[1])  # west lon, east_lon
-            ax.set_ylim(region_coords[2], region_coords[3])  # south_lat, north_lat
+            ax.set_ylim(region_coords[2], region_coords[3])  # south_lat, north_lat           
         if cbar_mode == 'compare':
             pass
         elif cbar_mode == 'individual':
