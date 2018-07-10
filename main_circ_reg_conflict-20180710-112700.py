@@ -1,19 +1,12 @@
-#!/usr/bin/env python2
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jul 10 11:51:50 2018
-
-@author: semvijverberg
-"""
 import os
 os.chdir('/Users/semvijverberg/surfdrive/Scripts/Circulation-Regimes')
 script_dir = os.getcwd()
-import what_input
+import what_variable
 #import retrieve_ERA_i
 import functions
 import numpy as np
 import plotting
-Variable = what_input.Variable
+Variable = what_variable.Variable
 import_array = functions.import_array
 calc_anomaly = functions.calc_anomaly
 PlateCarree_timesteps = plotting.PlateCarree_timesteps
@@ -23,14 +16,13 @@ find_region = plotting.find_region
 
 
 #%% assign instance
-#(self, name, dataset, startyear, endyear, startmonth, endmonth, grid, tfreq, units)
-temperature = Variable(name='2_metre_temperature', dataset='ERA-i', startyear=1979, endyear=2017, 
-                       startmonth=6, endmonth=8, tfreq='5days',grid='2.5/2.5')
+temperature = Variable(name='2_metre_temperature', dataset='ERA-i', var_cf_code='167.128', levtype='sfc', lvllist=0,
+                       startyear=1979, endyear=2017, startmonth=3, endmonth=9, grid='2.5/2.5', stream='oper', units='K')
 
 
 
-marray, temperature = functions.import_array(temperature)
-clim, anom, std = functions.calc_anomaly(marray, temperature)
+
+
 
 #%%
 # =============================================================================
@@ -60,11 +52,8 @@ subprocess.call(runfile)
 # Simple example of cdo commands within python by calling bash script
 # =============================================================================
 infile = os.path.join(temperature.base_path, 'input_raw', temperature.filename)
-outfile = os.path.join(temperature.base_path, 'input_pp', 'output.nc')
-tmp = os.path.join(temperature.base_path, 'input_raw', temperature.filename)
-args1 = 'cdo timmean {} {} '.format(infile, tmp)
-args2 = 'cdo timmean {} {} '.format(tmp, outfile)
-args = [args1, args2]
+outfile = os.path.join(temperature.base_path, 'input_pp', 'output')
+args = ['cdo eofspatial,3 {} {}'.format(infile, outfile+'1.nc', outfile+'2.nc')]
 functions.kornshell_with_input(args)
 
 

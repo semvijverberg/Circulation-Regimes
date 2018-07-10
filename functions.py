@@ -17,10 +17,11 @@ def kornshell_with_input(args):
     cwd = os.getcwd()
     # Writing the bash script:
     new_bash_script = os.path.join(cwd,'bash_scripts', "bash_script.sh")
-#    arg_5d_mean = 'cdo timselmean,5 {} {}'.format(infile, outfile)
-    #arg1 = 'ncea -d latitude,59.0,84.0 -d longitude,-95,-10 {} {}'.format(infile, outfile)
+    # example syntax
+    # arg_5d_mean = 'cdo timselmean,5 {} {}'.format(infile, outfile)
+    # arg_selbox = 'ncea -d latitude,59.0,84.0 -d longitude,-95,-10 {} {}'.format(infile, outfile)
     
-#    bash_and_args = [new_bash_script, arg_5d_mean]
+    # append all commands into basch script: $1, $2 etc...
     bash_and_args = [new_bash_script]
     [bash_and_args.append(arg) for arg in args]
     with open(new_bash_script, "w") as file:
@@ -28,10 +29,8 @@ def kornshell_with_input(args):
         file.write("echo starting bash script\n")
         for No_args in range(len(bash_and_args)):
             if No_args != 0:
-                file.write("${}\n".format(No_args)) 
-    
-    p = subprocess.Popen(bash_and_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    
+                file.write("${}\n".format(No_args))     
+    p = subprocess.Popen(bash_and_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) 
     out = p.communicate()[0]
     print out.decode()
 
@@ -121,6 +120,7 @@ def import_array(cls, path='pp'):
         file_path = os.path.join(cls.path_input, cls.filename)
     ncdf = xr.open_dataset(file_path, decode_cf=True, decode_coords=True, decode_times=False)
     marray = ncdf.to_array(file_path).rename(({file_path: cls.name.replace(' ', '_')}))
+    marray.name = cls.name
     numtime = marray['time']
     dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
     dates_np = pd.to_datetime(dates)
