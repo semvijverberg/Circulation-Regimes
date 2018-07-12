@@ -9,6 +9,26 @@
 # %run retrieve_ERA_i_field.py
 import plotting
 
+def import_array(cls, path='pp'):
+    import os
+    import xarray as xr
+    from netCDF4 import num2date
+    import pandas as pd
+    if path == 'pp':
+        file_path = os.path.join(cls.path_pp, cls.filename_pp)
+    else:
+        file_path = os.path.join(cls.path_raw, cls.filename)
+    ncdf = xr.open_dataset(file_path, decode_cf=True, decode_coords=True, decode_times=False)
+    marray = ncdf.to_array(file_path).rename(({file_path: cls.name.replace(' ', '_')}))
+    marray.name = cls.name
+    numtime = marray['time']
+    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+    dates_np = pd.to_datetime(dates)
+    print('temporal frequency \'dt\' is: \n{}'.format(dates_np[1]- dates_np[0]))
+    marray['time'] = dates_np
+    cls.dates_np = dates_np
+    
+    return marray, cls
 
 def kornshell_with_input(args):
     '''some kornshell with input '''
@@ -34,14 +54,16 @@ def kornshell_with_input(args):
     out = p.communicate()[0]
     print out.decode()
 
-def clustering_temporal(data, method, n_clusters, cls, region, month):
-    input = data.sel(month=month).drop('time_date')
-#    input = np.squeeze(input.isel(data.get_axis_num(cls.name))).drop(cls.name)
+def clustering_temporal(data, method, linkage, n_clusters, cls, region, RV_period):
     import sklearn.cluster as cluster
     import xarray as xr
     import numpy as np
     import os
     from sklearn.preprocessing import StandardScaler
+    input = data.isel(time=RV_period)
+#    input = data.sel(month=month).drop('time_date')
+#    input = np.squeeze(input.isel(data.get_axis_num(cls.name))).drop(cls.name)
+
     def clustering_plotting(cluster_method, input):        
         region_values, region_coords = plotting.find_region(input,region=region)
         print region_values.mean()
@@ -69,7 +91,7 @@ def clustering_temporal(data, method, n_clusters, cls, region, month):
                 os.makedirs(folder)
             perc_of_cluster = str(100*float(output.sel(cluster=n).time_date.size)/float(input.time.size))[:2]+'%'
             Nocluster['cluster_{}'.format(n)] = perc_of_cluster
-            group_clusters.name = 'cluster_{}_{}_{}'.format(n, perc_of_cluster, str(input['2_metre_temperature'].values[0]))
+            group_clusters.name = 'cluster_{}_{}_{}'.format(n, perc_of_cluster, str(input[cls.name].values[0]))
             plotting.xarray_plot(group_clusters.sel(cluster=n), path=folder, saving=True)
         group_clusters.name = name_method.replace('/','_') + '_' + input.name
         plotting.PlateCarree_timesteps(group_clusters.rename({'cluster':'time'}), cls, path=folder, region=region, saving=True)
@@ -96,38 +118,22 @@ def clustering_temporal(data, method, n_clusters, cls, region, month):
         # linkage_method -- 'average', 'centroid', 'complete', 'median', 'single',
         #                   'ward', or 'weighted'. See 'doc linkage' for more info.
         #                   'average' is standard.
-        linkage = ['ward','complete', 'average']
-#        linkage = ['ward']
-        for link in linkage:
-            name_method = os.path.join(method, link)
+        if np.size(linkage) == 1:
+            link = linkage
+            name_method = 'AgglomerativeClustering' + '_' + link
             print name_method
             cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
             output = clustering_plotting(cluster_method, input)
-    folder = os.path.join(cls.base_path, 'Clustering_temporal', method)
-    quicksave_ncdf(input, cls, path=folder, name=input.name)
+        else:
+            for link in linkage:
+                name_method = 'AgglomerativeClustering' + '_' + link
+                print name_method
+                cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
+                output = clustering_plotting(cluster_method, input)
+#    folder = os.path.join(cls.base_path, 'Clustering_temporal', method)
+#    quicksave_ncdf(input, cls, path=folder, name=input.name)
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters)
     return output
-
-
-def import_array(cls, path='pp'):
-    import os
-    import xarray as xr
-    from netCDF4 import num2date
-    import pandas as pd
-    if path == 'pp':
-        file_path = os.path.join(cls.base_path, 'input_pp', cls.filename)
-    else:
-        file_path = os.path.join(cls.path_input, cls.filename)
-    ncdf = xr.open_dataset(file_path, decode_cf=True, decode_coords=True, decode_times=False)
-    marray = ncdf.to_array(file_path).rename(({file_path: cls.name.replace(' ', '_')}))
-    marray.name = cls.name
-    numtime = marray['time']
-    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
-    dates_np = pd.to_datetime(dates)
-    print('temporal frequency \'dt\' is: \n{}'.format(dates_np[1]- dates_np[0]))
-    marray['time'] = dates_np
-    cls.dates_np = dates_np
-    return marray, cls
 
 
 def normalize(marray, with_mean=True, with_std=True):
@@ -188,7 +194,7 @@ def quicksave_ncdf(data, cls, path, name):
     data.to_netcdf(os.path.join(path, name))
     print('{} to path {}'.format(name, path))
 
-def clustering_spatial(data, method, n_clusters, cls):
+def clustering_spatial(data, method, linkage, n_clusters, cls):
     import numpy as np
     import os
     import sklearn.cluster as cluster
@@ -230,10 +236,12 @@ def clustering_spatial(data, method, n_clusters, cls):
         # linkage_method -- 'average', 'centroid', 'complete', 'median', 'single',
         #                   'ward', or 'weighted'. See 'doc linkage' for more info.
         #                   'average' is standard.
-        linkage = ['ward','complete', 'average']
         
-        for link in linkage:
-            method = 'AgglomerativeClustering' + '_' + link
+        if len(linkage) == 1:
+            method = 'AgglomerativeClustering' + '_' + linkage
+        else:
+            for link in linkage:
+                method = 'AgglomerativeClustering' + '_' + link
             print method
             cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
             output = clustering_plotting(cluster_method, input)

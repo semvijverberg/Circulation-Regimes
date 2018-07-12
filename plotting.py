@@ -50,7 +50,7 @@ def xarray_plot(data, path='default', saving=False):
         data = data[0]
     else:
         pass
-    proj = ccrs.Orthographic(central_longitude=-20, central_latitude=60)
+    proj = ccrs.Orthographic(central_longitude=data.longitude.mean().values, central_latitude=data.latitude.mean().values)
     ax = plt.axes(projection=proj)
     ax.coastlines()
     # ax.set_global()
