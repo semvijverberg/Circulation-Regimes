@@ -78,7 +78,7 @@ def clustering_temporal(data, method, linkage, n_clusters, cls, region, RV_perio
         output['cluster'] = labels_clusters
         output['time_date'] = labels_dates
         output = output.set_index(time=['cluster','time_date'])
-        output.name = method + '_' + data.name
+        output.name = method + '_' + cls.name
         Nocluster = {}
         group_clusters = output.groupby('cluster').mean(dim='time', keep_attrs=True)
 #        functions.quicksave_ncdf(output, cls, path=folder, name=output.name)
@@ -93,7 +93,7 @@ def clustering_temporal(data, method, linkage, n_clusters, cls, region, RV_perio
             Nocluster['cluster_{}'.format(n)] = perc_of_cluster
             group_clusters.name = 'cluster_{}_{}_{}'.format(n, perc_of_cluster, str(input[cls.name].values[0]))
             plotting.xarray_plot(group_clusters.sel(cluster=n), path=folder, saving=True)
-        group_clusters.name = name_method.replace('/','_') + '_' + input.name
+        group_clusters.name = name_method.replace('/','_') + '_' + cls.name
         plotting.PlateCarree_timesteps(group_clusters.rename({'cluster':'time'}), cls, path=folder, region=region, saving=True)
 
 #            folder = os.path.join(cls.base_path,'Clustering_temporal/', name_method, str(n))
@@ -185,7 +185,7 @@ def quicksave_ncdf(data, cls, path, name):
     import datetime
     today = datetime.datetime.today().strftime("%d-%m-%y_%H'%M")
     if data.name != '':
-        name = data.name.replace(' ', '_')
+        name = cls.name.replace(' ', '_')
     if 'name' in locals():
         print 'input name is: '.format(name)
         name = name + '_' + today + '.nc'
@@ -216,7 +216,7 @@ def clustering_spatial(data, method, linkage, n_clusters, cls):
             idx = int(np.where(output['time'] ==  t)[0])
             output[idx,:,:] = lonlat_cluster
 
-        output.name = method + '_' + data.name
+        output.name = method + '_' + cls.name
         for t in data['time'].values[:3]:
             folder = os.path.join(cls.base_path,'Clustering_spatial/' + method, str(t)[:7])
             if os.path.isdir(folder):

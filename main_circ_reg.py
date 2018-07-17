@@ -22,54 +22,59 @@ xarray_plot = plotting.xarray_plot
 LamberConformal = plotting.LamberConformal
 find_region = plotting.find_region
 
-exp_name = 'exp1'
-path = '/Users/semvijverberg/surfdrive/Data_ERAint/input_pp_exp1'
-exp = np.load(os.path.join(path, exp_name+'_dic.npy')).item()
-RV = exp[exp['vars'][0][0]]
-# Select reponse variable period
-exp['RV_period'] = np.where((RV.dates_np.month.values == 6).all() or RV.dates_np.month == 7)[0]
-#one_year = RV.dates_np.where(RV.dates_np.year==RV.startyear).dropna()
-#exp['RV_period'] = one_year.where(one_year > one_year[-8]).fillna(value='NaT', downcast=None)
-print exp['RV_period']
-# =============================================================================
-# =============================================================================
-# # solve RV_period
-# =============================================================================
-# =============================================================================
+# load post processed data
+exp_name = 't2m_sst_m5-8_dt14'
+path = '/Users/semvijverberg/surfdrive/Data_ERAint/t2m_sst_m5-8_dt14/input_pp'
+exp = np.load(os.path.join(path, exp_name+'_pp_dic.npy')).item()
+RV = exp['t2m']
 
-#%% assign instance
-#(self, name, dataset, startyear, endyear, startmonth, endmonth, grid, tfreq, units)
-#temperature = Variable(name='2_metre_temperature', dataset='ERA-i', startyear=1979, endyear=2017, 
-#                       startmonth=3, endmonth=9, tfreq=tfreq, grid=2.5, exp=exp['exp'])
+# =============================================================================
+# Select Response Variable period (which period you want to predict)
+# =============================================================================
+# Select reponse variable period
+RV = exp[exp['vars'][0][1]]
+marray, RV = functions.import_array(RV, path='pp')
+one_year = RV.dates_np.where(RV.dates_np.year == RV.startyear+1).dropna()
+months = [7,8]
+RV_period = []
+for mon in months:
+    RV_period.insert(-1, np.where(RV.dates_np.month == mon)[0] )
+RV_period = [x for sublist in RV_period for x in sublist]
+RV_period.sort()
+exp['RV_period'] = RV_period
 #%%
 # =============================================================================
 # clustering predictant / response variable
 # =============================================================================
-
-marray, temperature = functions.import_array(RV, path='pp')
-#clim, anom, std = functions.calc_anomaly(marray, temperature)
-marray
-#%%
-# =============================================================================
-# clustering tests
-# =============================================================================
-
-cls = RV
 RV_period = exp['RV_period']
 methods = ['KMeans', 'AgglomerativeClustering', 'hierarchical']
 linkage = ['ward','complete', 'average']
-method = methods[1] ; linkage = linkage[2]; n_clusters = 4; month=6; region='U.S.'
-data = marray
-#%% clustering temporal
-output = functions.clustering_temporal(data, method, linkage, n_clusters, RV, region='U.S.', RV_period=exp['RV_period'])
+exp['clusmethod'] = methods[1] ; exp['linkage'] = linkage[0] ; n_clusters = 4 ; region='U.S.'
 
+marray, temperature = functions.import_array(RV, path='pp')
+#%% clustering temporal
+output = functions.clustering_temporal(marray, exp['clusmethod'], exp['linkage'], n_clusters, RV, region='U.S.', RV_period=exp['RV_period'])
 #%% clustering spatial
-#output = functions.clustering_spatial(data, method, n_clusters, temperature)
+output = functions.clustering_spatial(marray, exp['clusmethod'], n_clusters, temperature)
+#%% Saving output in dictionary
 clusters = output.groupby('cluster').mean(dim='time', keep_attrs=True).to_dataset(name='clusters')
-#clusters.to_netcdf(path=os.path.join(temperature.path_pp, 'output_clusters.nc'))
 to_dict = clusters.to_dict()
 np.save(os.path.join(temperature.path_pp,'clusters_dic.npy'), to_dict)
-#%%
+
+
+
+#%% save to github
+import os
+import subprocess
+runfile = os.path.join(script_dir, 'saving_repository_to_Github.sh')
+subprocess.call(runfile)
+
+
+
+#%% Depricated
+#clusters.to_netcdf(path=os.path.join(temperature.path_pp, 'output_clusters.nc'))
+
+
 import pickle
 file_path = temperature.path_pp + '/' + 'clusters' + '.npy'
 #pickle.dump(file_path, 'wb')
@@ -80,15 +85,11 @@ save_obj(to_dict, os.path.join(temperature.path_pp,'clusters'))
 
 test = pickle.load(open(os.path.join(temperature.path_pp,'clusters.pkl'), 'rb'))
 #%%
-anom_region = plotting.find_region(anom.mean(dim='time', keep_attrs=True))
-create_masks = np.ma.masked_where(clusters.sel(cluster=0)>1*clusters.sel(cluster=0).std(), anom_region)
-create_masks = np.ma.make_mask(clusters.sel(cluster=0)>1*clusters.sel(cluster=0).std())
+#anom_region = plotting.find_region(anom.mean(dim='time', keep_attrs=True))
+#create_masks = np.ma.masked_where(clusters.sel(cluster=0)>1*clusters.sel(cluster=0).std(), anom_region)
+#create_masks = np.ma.make_mask(clusters.sel(cluster=0)>1*clusters.sel(cluster=0).std())
 
-#%% save to github
-import os
-import subprocess
-runfile = os.path.join(script_dir, 'saving_repository_to_Github.sh')
-subprocess.call(runfile)
+
 
 
 
