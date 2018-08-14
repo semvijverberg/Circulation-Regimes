@@ -72,10 +72,10 @@ class Variable:
         self.datelist_str = datelist_str
 
         # Convert to datetime datelist
-        self.dates_dt = [Variable.datetime.strptime(date, '%Y-%m-%d').date() for date in datelist_str]
+#        self.dates_dt = [Variable.datetime.strptime(date, '%Y-%m-%d').date() for date in datelist_str]
         self.dates_np = Variable.pd.to_datetime(datelist_str)
 
-        filename = '{}_{}-{}_{}_{}_{}_{}deg'.format(self.name, self.startyear, self.endyear, self.startmonth, self.endmonth, self.stream, self.grid).replace(' ', '_')
+        filename = '{}_{}-{}_{}_{}_{}_{}deg'.format(self.name, self.startyear, self.endyear, self.startmonth, self.endmonth, 'daily', self.grid).replace(' ', '_')
         self.filename = filename +'.nc'
         print("Variable function selected {} \n".format(self.filename))
 

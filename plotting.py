@@ -26,7 +26,7 @@ def save_figure(data, path):
         name = data.name.replace(' ', '_')
     if 'name' in locals():
         print 'input name is: {}'.format(name)
-        name = name + '_' + today + '.jpeg'
+        name = name + '.jpeg'
         pass
     else:
         name = 'fig_' + today + '.jpeg'
@@ -82,12 +82,44 @@ def convert_longitude(data):
     data['longitude'] = convert_lon
     return data
 
-def find_region(data, region='EU'):
+def xarray_mask_plot(data, path='default', saving=False):
+    # from plotting import save_figure
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import numpy as np
+    plt.figure(figsize=(10,6))
+    input = np.squeeze(data)
+    if len(input.longitude[np.where(input.longitude > 180)[0]]) != 0:
+        input = convert_longitude(input)
+    else:
+        pass
+    if input.ndim != 2:
+        print "number of dimension is {}, printing first element of first dimension".format(np.squeeze(input).ndim)
+        input = input[0]
+    else:
+        pass
+    proj = ccrs.Orthographic(central_longitude=input.longitude.mean().values, 
+                             central_latitude=input.latitude.mean().values)
+    ax = plt.axes(projection=proj)
+    ax.coastlines()
+#    colors = plt.cm.rainbow(np.linspace(0,1,data.max()))
+    cmap = plt.cm.tab10
+    levels = np.arange(0.5, input.max()+1.5)
+    clevels = np.arange(input.min(), input.max()+1E-9)
+#    clevels = np.insert(clevels, 0, 0)
+    input.where(input.mask==True).plot.pcolormesh(ax=ax, levels=levels,
+                             transform=ccrs.PlateCarree(), cmap=cmap,
+                             add_colorbar=True, cbar_kwargs={'ticks':clevels})
+    if saving == True:
+        save_figure(input, path=path)
+    plt.show()
+
+def find_region(data, region='U.S.'):
     if region == 'EU':
         west_lon = -30; east_lon = 40; south_lat = 35; north_lat = 65
 
     elif region ==  'U.S.':
-        west_lon = -120; east_lon = -70; south_lat = 20; north_lat = 50
+        west_lon = -125; east_lon = -72; south_lat = 30; north_lat = 50
 
     region_coords = [west_lon, east_lon, south_lat, north_lat]
     import numpy as np
@@ -106,7 +138,7 @@ def find_region(data, region='EU'):
         all_values = data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360+east_lon))
         lon_idx = np.arange(find_nearest(data['longitude'], 360 + west_lon), find_nearest(data['longitude'], 360+east_lon))
         lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
-
+    
     return all_values, region_coords
 
 from matplotlib.colors import Normalize
