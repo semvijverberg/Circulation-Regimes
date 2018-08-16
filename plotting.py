@@ -31,7 +31,7 @@ def save_figure(data, path):
     else:
         name = 'fig_' + today + '.jpeg'
     print('{} to path {}'.format(name, path))
-    plt.savefig(os.path.join(path,name), format='jpeg', bbox_inches='tight')
+    plt.savefig(os.path.join(path,name), format='jpeg', dpi=300, bbox_inches='tight')
 
 
 def xarray_plot(data, path='default', saving=False):
@@ -50,11 +50,20 @@ def xarray_plot(data, path='default', saving=False):
         data = data[0]
     else:
         pass
-    proj = ccrs.Orthographic(central_longitude=data.longitude.mean().values, central_latitude=data.latitude.mean().values)
+    if 'mask' in data.coords.keys():
+        cen_lon = data.where(data.mask==True, drop=True).longitude.mean()
+        data = data.where(data.mask==True, drop=True)
+    else:
+        cen_lon = data.longitude.mean().values
+    proj = ccrs.Orthographic(central_longitude=cen_lon.values, central_latitude=data.latitude.mean().values)
     ax = plt.axes(projection=proj)
     ax.coastlines()
     # ax.set_global()
-    plot = data.plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
+    if 'mask' in data.coords.keys():
+        plot = data.where(data.mask==True).plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
+                             transform=ccrs.PlateCarree(), add_colorbar=True)
+    else:
+        plot = data.plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
                              transform=ccrs.PlateCarree(), add_colorbar=True)
     if saving == True:
         save_figure(data, path=path)
@@ -88,7 +97,8 @@ def xarray_mask_plot(data, path='default', saving=False):
     import cartopy.crs as ccrs
     import numpy as np
     plt.figure(figsize=(10,6))
-    input = np.squeeze(data)
+    input = data.where(data.mask==True, drop=True)
+    input.name = data.name
     if len(input.longitude[np.where(input.longitude > 180)[0]]) != 0:
         input = convert_longitude(input)
     else:
@@ -119,7 +129,7 @@ def find_region(data, region='U.S.'):
         west_lon = -30; east_lon = 40; south_lat = 35; north_lat = 65
 
     elif region ==  'U.S.':
-        west_lon = -125; east_lon = -72; south_lat = 30; north_lat = 50
+        west_lon = -125; east_lon = -72; south_lat = 30; north_lat = 46
 
     region_coords = [west_lon, east_lon, south_lat, north_lat]
     import numpy as np

@@ -200,28 +200,34 @@ def clustering_spatial(data, ex, n_clusters, region, cls):
     import xarray as xr
     import os
     import sklearn.cluster as cluster
-    input = np.squeeze(data)
+    input = data.squeeze()
     def clustering_plotting(cluster_method, input, n_clusters):
-        region_values, region_coords = plotting.find_region(input, region=region)
+        region_values = input.where(input.mask == True)
         output = region_values[0].copy()
         def station_time_shape(array, timesteps):
             X_vec = np.reshape( array.values, (timesteps, array.longitude.size*array.latitude.size) )
             X_station_time = np.swapaxes(X_vec, 1,0 )
             return X_station_time
         # load lsm to 
-        path_lsm = str('/Users/semvijverberg/surfdrive/Data_ERAint/input_raw/grids/'
-                    'landseamask_{}deg.nc'.format(ex['grid_res']))
-        ncdf = xr.open_dataset(path_lsm, decode_cf=True, decode_coords=True, decode_times=False)
-        lsm_array = np.squeeze(ncdf.to_array(path_lsm))
-        lsm_region, bounds = plotting.find_region(lsm_array, region=region)
-#        lsm_lonlat = np.array(np.tile(lsm_region, (data.time.size,1,1)), dtype=bool)
-        lsm_station_time = station_time_shape(lsm_region, 1)
-        lsm_station_time = np.array(np.tile(lsm_station_time, (1,data.time.size)), dtype=int)
-        output_lonlat = np.array(lsm_station_time[:,0].copy(), dtype=int)
+#        path_lsm = str('/Users/semvijverberg/surfdrive/Data_ERAint/input_raw/grids/'
+#                    'landseamask_{}deg.nc'.format(ex['grid_res']))
+#        ncdf = xr.open_dataset(path_lsm, decode_cf=True, decode_coords=True, decode_times=False)
+#        lsm_array = np.squeeze(ncdf.to_array(path_lsm))
+#        lsm_region, bounds = plotting.find_region(lsm_array, region=region)
+        
+
+#        lsm_station_time = station_time_shape(lsm_region, 1)
+#        lsm_station_time = np.array(np.tile(lsm_station_time, (1,data.time.size)), dtype=int)
+#        output_lonlat = np.array(lsm_station_time[:,0].copy(), dtype=int)
+
         # reshape array to [station, time] (to create dendogram timeseries)
+        
+        mask_station_time = station_time_shape(region_values.mask, 1)
+        mask_station_time = np.array(np.tile(mask_station_time, (1,data.time.size)), dtype=int)
+        output_lonlat = np.array(mask_station_time[:,0].copy(), dtype=int)
         indic_station_time = station_time_shape(region_values, region_values.time.size)
         # only keep the land gridcells
-        indic_st_land = indic_station_time[np.array(lsm_station_time,dtype=bool)]
+        indic_st_land = indic_station_time[mask_station_time == 1]
         n_land_stations = output_lonlat[output_lonlat==1].size
         indic_st_land = indic_st_land.reshape( (n_land_stations, data.time.size)  )
 
@@ -231,10 +237,10 @@ def clustering_spatial(data, ex, n_clusters, region, cls):
         # plug in the land gridcell with the labels
         land_gcs = np.argwhere(output_lonlat == 1)[:,0]
         output_lonlat[land_gcs] = labels
-        output_lonlat = np.reshape(np.array(output_lonlat+1), region_values[0].shape)
+        output_lonlat[land_gcs] = output_lonlat[land_gcs] + 1
+        output_lonlat = np.reshape(np.array(output_lonlat), region_values[0].shape)
         output.values = output_lonlat
         output.name = cls.name + '_' + str(n_clusters) + '_' + name_method
-        output.coords['mask'] = (('latitude','longitude'), np.array(lsm_region,dtype=bool))
         
         folder = os.path.join(cls.base_path,'Clustering_spatial/')
         if os.path.isdir(folder) != True : os.makedirs(folder)
@@ -255,13 +261,15 @@ def clustering_spatial(data, ex, n_clusters, region, cls):
             link = ex['linkage']
             name_method = 'AgglomerativeClustering' + '_' + link
             print name_method
-            cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
+            cluster_method = algorithm(linkage=link, n_clusters=n_clusters, 
+                                           affinity=ex['distmetric'])
             output = clustering_plotting(cluster_method, input, n_clusters)
         else:
             for link in ex['linkage']:
                 name_method = 'AgglomerativeClustering' + '_' + link
                 print name_method
-                cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
+                cluster_method = algorithm(linkage=link, n_clusters=n_clusters, 
+                                           affinity=ex['distmetric'])
                 output = clustering_plotting(cluster_method, input, n_clusters)
                 
 #    folder = os.path.join(cls.base_path, 'Clustering_spatial', method)
@@ -269,6 +277,13 @@ def clustering_spatial(data, ex, n_clusters, region, cls):
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters) 
     return output
 
-
+def Mckin_timeseries(marray, RV):
+    import numpy as np
+    perc = marray.reduce(np.percentile, dim='time', keep_attrs=True, q=95)
+    rep_perc = np.tile(perc, (marray.time.size,1,1))
+    indic = np.squeeze(marray.where(np.squeeze(marray.values) > rep_perc))
+    indic.values = np.nan_to_num(indic)
+    indic.values[indic.values > 0 ] = 1
+    return indic
 #%%
 # clim = xr.DataArray(input_array_3Dims, dims=('time', 'latitude', 'longitude'), coords=[months, latitudes,longitudes])

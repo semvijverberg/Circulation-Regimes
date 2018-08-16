@@ -25,7 +25,7 @@ LamberConformal = plotting.LamberConformal
 find_region = plotting.find_region
 
 # load post processed data
-path = '/Users/semvijverberg/surfdrive/Data_ERAint/t2mmax_t2m_sst_m6-8_dt14/15jun-24aug_2.5natearth_with_US_mask'
+path = '/Users/semvijverberg/surfdrive/Data_ERAint/t2mmax_t2m_sst_m6-8_dt14/13Jul-24Aug_ward'
 ex = np.load(os.path.join(path, 'input_dic_part_1.npy')).item()
 RV = ex['t2mmax']
 
@@ -36,18 +36,9 @@ RV = ex['t2mmax']
 # =============================================================================
 marray, temperature = functions.import_array(RV, path='pp')
 
-# add mask to marray:
-path_masks = os.path.join('/Users/semvijverberg/surfdrive/Scripts/rasterio', ex['maskname']+'.npy') 
-US_mask = np.load(path_masks).item()['US_mask']
-nor_lon = US_mask.longitude
-US_mask = US_mask.roll(longitude=2)
-US_mask['longitude'] = nor_lon
-xarray_plot(US_mask)
-marray.coords['mask'] = (('latitude','longitude'), US_mask.mask)
-RV_period = marray.isel(time=ex['RV_period'])
-
+RV_period = ex['RV_period']
+#RV_marray = marray.isel(time=RV_period)
 McKts = functions.Mckin_timeseries(marray, RV)
-
 
 # =============================================================================
 # clustering predictant / response variable
@@ -63,33 +54,35 @@ for n in n_clusters:
     output = functions.clustering_spatial(McKts, ex, n, region, RV)
 
 #%% Saving output in dictionary
-data = McKts
-n_clusters = 5
-# Create mask of cluster
-output = functions.clustering_spatial(McKts, ex, n_clusters, region, RV)
+n = 5
+output = functions.clustering_spatial(McKts, ex, n, region, RV)
 selclus = 3
 arr = np.nan_to_num(output.where(output == selclus))
-tmax = marray
+#np.ma.make_mask(arr)
+tmax, bounds = plotting.find_region(marray)
 tmax.coords['mask'] = (('latitude','longitude'), np.array(arr,dtype=bool))
 tmaxfullts = tmax.where(tmax.mask ==True).mean(dim=['latitude','longitude']).squeeze()
 
 RV_name_range = '{}{}-{}{}_'.format(ex['RV_oneyr'].min().day, ex['RV_oneyr'].min().month_name()[:3], 
                  ex['RV_oneyr'].max().day, ex['RV_oneyr'].max().month_name()[:3] )
-ex['path_exp_periodmask'] = os.path.join(RV.base_path, ex['exp_pp'], 
+ex['path_exp_mask_region'] = os.path.join(RV.base_path, ex['exp_pp'], 
                               RV_name_range + ex['linkage'][:4] + ex['clusmethod'][:4] + 
                               ex['distmetric'][:4])
-if os.path.isdir(ex['path_exp_periodmask']) != True : os.makedirs(ex['path_exp_periodmask'])
-filename = ex['path_exp_periodmask'].split('/')[-1]
-to_dict = dict( {'RVfullts' : tmaxfullts} )
-np.save(os.path.join(ex['path_pp'] , filename+'.npy'), to_dict)
-np.save(os.path.join(ex['path_exp_periodmask'], 'input_tig_dic.npy'), ex)
+if os.path.isdir(ex['path_exp_mask_region'] ):
+    pass
+else:
+    os.makedirs(ex['path_exp_mask_region'] )
+filename = ex['path_exp_mask_region'].split('/')[-1]
+to_dict = dict( {'tmaxfullts' : tmaxfullts} )
+np.save(os.path.join(ex['path_exp_mask_region'] , filename+'.npy'), to_dict)
+np.save(os.path.join(ex['path_exp_mask_region'], 'input_tig_dic.npy'), ex)
 
 
 #pickle.dump(file_path, 'wb')
 def save_obj(obj, name ):
     with open(name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-save_obj(to_dict, os.path.join(ex['path_pp'],filename))
+save_obj(to_dict, os.path.join(ex['path_exp_mask_region'],filename))
 
 
 # Depricated
