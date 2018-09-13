@@ -6,7 +6,7 @@ Created on Fri Sep  7 15:47:28 2018
 @author: semvijverberg
 """
 import os, sys
-os.chdir('/Users/semvijverberg/surfdrive/Scripts/Circulation-Regimes3')
+os.chdir('/Users/semvijverberg/surfdrive/Scripts/Circulation-Regimes')
 script_dir = os.getcwd()
 if sys.version[:1] == '3':
     from importlib import reload as rel
@@ -77,7 +77,7 @@ file_name = os.path.join(ex['fig_path'],
              'mean composite lag{}-{}.png'.format(lags[0], lags[-1]))
 title = 'mean composite - absolute values \nT95 McKinnon data - ERA-I SST'
 kwrgs = dict( {'vmin' : -0.4, 'vmax' : 0.4, 'title' : title, 'clevels' : 'notdefault',
-               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r} )
+               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
 func_mcK.finalfigure(xrdata, file_name, kwrgs) 
 
 #%%
@@ -93,7 +93,7 @@ for lag in lags:
 title = 'S/N within composite \nabsolute values / std within composite \nT95 McKinnon data - ERA-I SST'
 xrdatastd.attrs['units'] = 'std within composite'
 kwrgs = dict( {'vmin' : 0, 'vmax' : 1.2, 'title' : title, 'clevels' : 'notdefault',
-               'map_proj' : map_proj, 'cmap' : plt.cm.Reds} )
+               'map_proj' : map_proj, 'cmap' : plt.cm.Reds, 'column' : 2} )
 file_name = os.path.join(ex['fig_path'], 
              'std within composite lag{}-{}.png'.format(lags[0], lags[-1]))
 func_mcK.finalfigure(xrdatastd, file_name, kwrgs)
@@ -116,7 +116,7 @@ xrdata.attrs['units'] = 'Kelvin (normalized by std)'
 file_name = '~/Downloads/finalfiguremckinnon'
 title = 'normalized by total std \nT95 McKinnon data - ERA-I SST'
 kwrgs = dict( {'vmin' : -0.7, 'vmax' : 0.7, 'title' : title, 'clevels' : 'notdefault',
-               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r} )
+               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
 file_name = os.path.join(ex['fig_path'], 
              'normalized by std values lag{}-{}.png'.format(lags[0], lags[-1]))
 func_mcK.finalfigure(xrdata, file_name, kwrgs) 
@@ -142,7 +142,7 @@ xrdata.attrs['units'] = 'Kelvin (normalized by std)'
 file_name = '~/Downloads/finalfiguremckinnon'
 title = 'normalized by total std \nT95 McKinnon data - ERA-I SST'
 kwrgs = dict( {'vmin' : -0.7, 'vmax' : 0.7, 'title' : title, 'clevels' : 'notdefault',
-               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r} )
+               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
 file_name = os.path.join(ex['fig_path'], 
              'normalized by std values lag{}-{}.png'.format(lags[0], lags[-1]))
 func_mcK.finalfigure(xrdata, file_name, kwrgs) 
@@ -155,14 +155,14 @@ for lag in lags:
     aboveperc = xrdata.where( (xrdata.sel(lag=lag) > percentile) | (xrdata.sel(lag=lag) < -percentile))
     
 
-title = 'exceeding {} \nT95 McKinnon data - ERA-I SST'.format(ex['percentile'])
+title = 'exceeding {}th percentile of mean composite \nT95 McKinnon data - ERA-I SST'.format(ex['percentile'])
 kwrgs = dict( {'vmin' : -0.7, 'vmax' : 0.7, 'title' : title, 'clevels' : 'notdefault',
-               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r} )
+               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
 file_name = os.path.join(ex['fig_path'], 
              'Retrieve dominant pattern mean composite lag{}-{}.png'.format(lags[0], lags[-1]))
 func_mcK.finalfigure(aboveperc, file_name, kwrgs) 
 #%%
-dates = matchhotdates[np.arange(0, matchhotdates.size, int(matchhotdates.size/20))]
+dates = matchhotdates[np.arange(0, matchhotdates.size, int(matchhotdates.size/10))]
 lag = 50
 array = np.zeros( (len(dates),varfull.latitude.size, varfull.longitude.size) )
 randhot = xr.DataArray(data=array, coords=[dates, varfull.latitude, varfull.longitude], 
@@ -177,9 +177,9 @@ for date in dates:
     randhot[idx] = singledate.where( (singledate > percentile) | (singledate < -percentile))
     
 randhot.attrs['units'] = 'upper 20 percentile anomalies'
-title = 'exceeding {}th percentile \nT95 McKinnon data - ERA-I SST'.format(ex['percentile'])
+title = 'exceeding {}th percentile of mean composite \nT95 McKinnon data - ERA-I SST'.format(ex['percentile'])
 kwrgs = dict( {'vmin' : -3, 'vmax' : 3, 'title' : title, 'clevels' : 'notdefault',
-               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r} )
+               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 3} )
 file_name = os.path.join(ex['fig_path'], 
              'random maps SST prior to heat event with lag {}.png'.format(lag))
 func_mcK.finalfigure(randhot, file_name, kwrgs) 

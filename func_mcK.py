@@ -177,7 +177,7 @@ def finalfigure(xrdata, file_name, kwrgs):
 #    clevels = '' ; vmin=-0.4 ; vmax=0.4
     lons = xrdata.longitude.values
     lats = xrdata.latitude.values
-    g = xr.plot.FacetGrid(xrdata, col='lag', col_wrap=2, sharex=True,
+    g = xr.plot.FacetGrid(xrdata, col='lag', col_wrap=kwrgs['column'], sharex=True,
                       sharey=True, subplot_kws={'projection': kwrgs['map_proj']},
                       aspect= (xrdata.longitude.size) / xrdata.latitude.size, size=3)
     figwidth = g.fig.get_figwidth() ; figheight = g.fig.get_figheight()
