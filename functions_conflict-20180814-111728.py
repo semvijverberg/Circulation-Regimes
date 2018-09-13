@@ -24,7 +24,7 @@ def import_array(cls, path='pp'):
     numtime = marray['time']
     dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
     dates_np = pd.to_datetime(dates)
-    print('temporal frequency \'dt\' is: \n{}'.format(dates_np[1]- dates_np[0]))
+    print(('temporal frequency \'dt\' is: \n{}'.format(dates_np[1]- dates_np[0])))
     marray['time'] = dates_np
     cls.dates_np = dates_np
     
@@ -52,7 +52,7 @@ def kornshell_with_input(args):
                 file.write("${}\n".format(No_args))     
     p = subprocess.Popen(bash_and_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) 
     out = p.communicate()[0]
-    print out.decode()
+    print(out.decode())
 
 def clustering_temporal(data, method, linkage, n_clusters, cls, region, RV_period):
     import sklearn.cluster as cluster
@@ -66,7 +66,7 @@ def clustering_temporal(data, method, linkage, n_clusters, cls, region, RV_perio
 
     def clustering_plotting(cluster_method, input):        
         region_values, region_coords = plotting.find_region(input,region=region)
-        print region_values.mean()
+        print(region_values.mean())
         X_vectors = np.reshape(region_values.values, (len(input.time), np.size(region_values.isel(time=0))))
         # Make sure field has mean of 0 and unit variance (std = 1)
         X = StandardScaler().fit_transform(X_vectors)
@@ -121,13 +121,13 @@ def clustering_temporal(data, method, linkage, n_clusters, cls, region, RV_perio
         if np.size(linkage) == 1:
             link = linkage
             name_method = 'AgglomerativeClustering' + '_' + link
-            print name_method
+            print(name_method)
             cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
             output = clustering_plotting(cluster_method, input)
         else:
             for link in linkage:
                 name_method = 'AgglomerativeClustering' + '_' + link
-                print name_method
+                print(name_method)
                 cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
                 output = clustering_plotting(cluster_method, input)
 #    folder = os.path.join(cls.base_path, 'Clustering_temporal', method)
@@ -187,13 +187,13 @@ def clustering_spatial(data, ex, n_clusters, region, cls):
         if np.size(ex['linkage']) == 1:
             link = ex['linkage']
             name_method = 'AgglomerativeClustering' + '_' + link
-            print name_method
+            print(name_method)
             cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
             output = clustering_plotting(cluster_method, input)
         else:
             for link in ex['linkage']:
                 name_method = 'AgglomerativeClustering' + '_' + link
-                print name_method
+                print(name_method)
                 cluster_method = algorithm(linkage=link, n_clusters=n_clusters)
                 output = clustering_plotting(cluster_method, input)
                 
@@ -215,7 +215,7 @@ def normalize(marray, with_mean=True, with_std=True):
 def calc_anomaly(marray, cls, q = 0.95):
     import xarray as xr
     import numpy as np
-    print("calc_anomaly called for {}".format(cls.name, marray.shape))
+    print(("calc_anomaly called for {}".format(cls.name, marray.shape)))
     clim = marray.groupby('time.month').mean('time', keep_attrs=True)
     clim.name = 'clim_' + marray.name
     anom = marray.groupby('time.month') - clim
@@ -254,12 +254,12 @@ def quicksave_ncdf(data, cls, path, name):
     if data.name != '':
         name = cls.name.replace(' ', '_')
     if 'name' in locals():
-        print 'input name is: '.format(name)
+        print('input name is: '.format(name))
         name = name + '_' + today + '.nc'
     else:
         name = 'netcdf_' + today + '.nc'
     data.to_netcdf(os.path.join(path, name))
-    print('{} to path {}'.format(name, path))
+    print(('{} to path {}'.format(name, path)))
 
 
 #%%

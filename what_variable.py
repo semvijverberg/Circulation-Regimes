@@ -78,7 +78,7 @@ class Variable:
 
         filename = '{}_{}-{}_{}_{}_{}_{}'.format(self.name, self.startyear, self.endyear, self.startmonth, self.endmonth, self.stream, self.grid).replace(' ', '_').replace('/','x')
         self.filename = filename +'.nc'
-        print("Variable function selected {} \n".format(self.filename))
+        print(("Variable function selected {} \n".format(self.filename)))
 
 #
 #

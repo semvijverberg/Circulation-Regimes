@@ -22,18 +22,18 @@ class Variable:
         self.tfreq = tfreq
         self.dataset = dataset
         self.base_path = '/Users/semvijverberg/surfdrive/Data_ERAint/'
-        print exp
+        print(exp)
         self.path_pp = os.path.join(self.base_path, 'input_pp'+'_'+exp)
         self.path_raw = os.path.join(self.base_path, 'input_raw')
         if os.path.isdir(self.path_pp):
             pass
         else:
-            print("{}\n\npath input does not exist".format(self.path_pp))
+            print(("{}\n\npath input does not exist".format(self.path_pp)))
         filename = '{}_{}-{}_{}_{}_dt-{}days_{}'.format(self.name, self.startyear, 
                     self.endyear, self.startmonth, self.endmonth, self.tfreq, 
                     self.grid).replace(' ', '_').replace('/','x')
         self.filename = filename +'.nc'
-        print("Variable function selected {} \n".format(self.filename))
+        print(("Variable function selected {} \n".format(self.filename)))
 
 #class Experiment:
 #    

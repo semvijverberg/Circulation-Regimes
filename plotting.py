@@ -25,12 +25,12 @@ def save_figure(data, path):
     if data.name != '':
         name = data.name.replace(' ', '_')
     if 'name' in locals():
-        print 'input name is: {}'.format(name)
+        print('input name is: {}'.format(name))
         name = name + '.jpeg'
         pass
     else:
         name = 'fig_' + today + '.jpeg'
-    print('{} to path {}'.format(name, path))
+    print(('{} to path {}'.format(name, path)))
     plt.savefig(os.path.join(path,name), format='jpeg', dpi=300, bbox_inches='tight')
 
 
@@ -39,32 +39,39 @@ def xarray_plot(data, path='default', saving=False):
     import matplotlib.pyplot as plt
     import cartopy.crs as ccrs
     import numpy as np
-    plt.figure()
-    data = np.squeeze(data)
+    fig = plt.figure()
+    name = data.name
+    data = data.squeeze()
     if len(data.longitude[np.where(data.longitude > 180)[0]]) != 0:
         data = convert_longitude(data)
     else:
         pass
     if data.ndim != 2:
-        print "number of dimension is {}, printing first element of first dimension".format(np.squeeze(data).ndim)
+        print("number of dimension is {}, printing first element of first dimension".format(np.squeeze(data).ndim))
         data = data[0]
     else:
         pass
-    if 'mask' in data.coords.keys():
-        cen_lon = data.where(data.mask==True, drop=True).longitude.mean()
+    if 'mask' in list(data.coords.keys()):
+        cen_lon = data.where(data.mask==True, drop=True).longitude.mean().values
         data = data.where(data.mask==True, drop=True)
     else:
         cen_lon = data.longitude.mean().values
-    proj = ccrs.Orthographic(central_longitude=cen_lon.values, central_latitude=data.latitude.mean().values)
+#    proj = ccrs.Orthographic(central_longitude=cen_lon, central_latitude=data.latitude.mean())
+    proj = ccrs.PlateCarree()
+
     ax = plt.axes(projection=proj)
     ax.coastlines()
     # ax.set_global()
-    if 'mask' in data.coords.keys():
-        plot = data.where(data.mask==True).plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
-                             transform=ccrs.PlateCarree(), add_colorbar=True)
+    data.name = name
+    if 'mask' in list(data.coords.keys()):
+        im = data.where(data.mask==True).plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
+                             transform=ccrs.PlateCarree(), add_colorbar=False)
     else:
-        plot = data.plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
-                             transform=ccrs.PlateCarree(), add_colorbar=True)
+        im = data.plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
+                             transform=ccrs.PlateCarree(), add_colorbar=False)
+#    cbar_kwargs = {'orientation' : 'horizontal'} )
+    cbar_ax = fig.add_axes([0.25, 0.25, 0.5, 0.05])                         
+    plt.colorbar(im, cax=cbar_ax, orientation='horizontal', label=data.name)
     if saving == True:
         save_figure(data, path=path)
     plt.show()
@@ -104,7 +111,7 @@ def xarray_mask_plot(data, path='default', saving=False):
     else:
         pass
     if input.ndim != 2:
-        print "number of dimension is {}, printing first element of first dimension".format(np.squeeze(input).ndim)
+        print("number of dimension is {}, printing first element of first dimension".format(np.squeeze(input).ndim))
         input = input[0]
     else:
         pass
@@ -130,6 +137,18 @@ def find_region(data, region='U.S.'):
 
     elif region ==  'U.S.':
         west_lon = -125; east_lon = -72; south_lat = 30; north_lat = 46
+
+    elif region ==  'U.S.large':
+        west_lon = -140; east_lon = -60; south_lat = 30; north_lat = 55
+
+    elif region ==  'U.S.wide':
+        west_lon = -180; east_lon = 180; south_lat = 0; north_lat = 70
+
+    elif region ==  'U.S.xlarge':
+        west_lon = -160; east_lon = -40; south_lat = 20; north_lat = 60
+    
+    elif region ==  'U.S.small':
+        west_lon = -95; east_lon = -75; south_lat = 32; north_lat = 45
 
     region_coords = [west_lon, east_lon, south_lat, north_lat]
     import numpy as np
@@ -167,10 +186,12 @@ class MidpointNormalize(Normalize):
 
 def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='compare', region='U.S.', saving=False):
 #    path='default'; type='abs'; cbar_mode='compare'; region='U.S.'; saving=False
+    #%%
     import numpy as np
     import cartopy.crs as ccrs
     import cartopy.feature as cfeat
     from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+    import matplotlib.ticker as mticker
     import matplotlib.pyplot as plt
     import matplotlib.gridspec as gridspec  
     from plotting import extend_longitude
@@ -180,9 +201,9 @@ def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='comp
     else:
         "select less time steps to plot"
         input = data.isel(time=[0,1,2,3])
-    fig = plt.figure(figsize=(10, 8))
+    fig = plt.figure()
     for i in input['time'].values:
-        print i
+        print(i)
         rows = 2 if len(input['time']) / 2. > 1 else 1
         columns = int(len(input['time'])/rows + len(input['time']) % float(rows))
         gs = gridspec.GridSpec(rows, columns)
@@ -197,14 +218,14 @@ def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='comp
         ax.add_feature(cfeat.BORDERS, linestyle=':')
         if region == 'global':
             values_region = input
-        elif region == 'EU' or region == 'U.S.':
+        elif region == 'EU' or region[:4] == 'U.S.':
             values_region, region_coords = find_region(input, region=region)    
             ax.set_xlim(region_coords[0], region_coords[1])  # west lon, east_lon
             ax.set_ylim(region_coords[2], region_coords[3])  # south_lat, north_lat           
         if cbar_mode == 'compare':
             pass
         elif cbar_mode == 'individual':
-            print cbar_mode
+            print(cbar_mode)
             values_region = values_region.sel(time=i)
         if type=='norm':
             std_region = np.std(values_region).values
@@ -223,12 +244,21 @@ def PlateCarree_timesteps(data, cls, path='default', type='abs', cbar_mode='comp
             norm = MidpointNormalize(midpoint=0, vmin=min_region, vmax=max_region)
         lons, lats = np.meshgrid(plottable['longitude'].values, plottable['latitude'].values)
         # norm = colors.BoundaryNorm(boundaries=np.linspace(round(min_region),round(max_region),11), ncolors=256)
-        map = ax.pcolormesh(lons, lats, np.squeeze(plottable), transform=ccrs.PlateCarree(), norm=norm, cmap=plt.cm.coolwarm)
-        ax.set_title(np.str(i).split(':')[0]) ; plt.colorbar(map, ax=ax, orientation='horizontal', use_gridspec=True, fraction = 0.1, pad=0.1, label=unit)
+        map = ax.pcolormesh(lons, lats, np.squeeze(plottable), transform=ccrs.PlateCarree(), norm=norm, cmap=plt.cm.RdBu_r)
+        ax.set_title(np.str(i).split(':')[0]) ; 
+        plt.colorbar(map, ax=ax, orientation='horizontal', 
+                    use_gridspec=True, fraction = 0.1, pad=0.15, label=unit)
         # cb.set_label('label', rotation=0, position=(0.5, 0.5))
+#        ax.tick_params(axis='both')
         gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
+        yticks = np.arange(region_coords[2], region_coords[3]+5, 5)
+        gl.ylocator = mticker.FixedLocator(yticks)
+        xticks = np.arange(region_coords[0], region_coords[1]+10, 10)
+        gl.xlocator = mticker.FixedLocator(xticks)
         gl.xlabels_top = False ; gl.xformatter = LONGITUDE_FORMATTER
         gl.ylabels_right= False ; gl.yformatter = LATITUDE_FORMATTER
+        gl.xlabel_style = {'size':8} ; gl.ylabel_style = {'size':8}
+        #%%
     if saving == True:
         save_figure(input, path=path)
     plt.show()
@@ -259,14 +289,14 @@ def PlateCarree(plottable, valueformat='abs', rows=1, columns=1, r=0, c=0, regio
         ax.set_xlim(region_coords[0], region_coords[1])  # west lon, east_lon
         ax.set_ylim(region_coords[2], region_coords[3])  # south_lat, north_lat
     if valueformat == 'norm':
-        print "norm"
+        print("norm")
         std_region = np.std(values_region).values
         min_region = np.min(values_region / std_region).values
         max_region = np.max(values_region / std_region).values
         plottable = np.squeeze(input / std_region)
         unit = r"T2m $\sigma$ " + "= {:}".format(round(std_region, 1))
     elif valueformat == 'abs':
-        print "absolute"
+        print("absolute")
         min_region = np.min(values_region)
         max_region = np.max(values_region)
         unit = plottable.attrs['units']

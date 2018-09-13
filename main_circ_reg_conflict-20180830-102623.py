@@ -8,6 +8,8 @@ Created on Tue Jul 10 11:51:50 2018
 import os
 os.chdir('/Users/semvijverberg/surfdrive/Scripts/Circulation-Regimes3')
 script_dir = os.getcwd()
+#import what_input
+#import retrieve_ERA_i
 import functions
 import numpy as np
 import plotting
@@ -27,9 +29,9 @@ find_region = plotting.find_region
 # load post processed data
 #path = '/Users/semvijverberg/surfdrive/Data_ERAint/t2m_u_m4-8_dt10/1jun-24aug_2.5natearth_with_US_mask/'
 #ex = np.load(os.path.join(path, 'input_dic_part_1.npy')).item()
-#new = '/Users/semvijverberg/surfdrive/Data_ERAint/t2mmax_z_diff_tfreqs/t2mmax_z_m3-08_dt14/1jun-24aug_aver_tf14_n6_lag1-4/input_dic_part_1.npy'
-#ex = np.load(new, encoding='latin1').item()
-ex = np.load(filename_exp_design1, encoding='latin1').item()
+new = '/Users/semvijverberg/surfdrive/Data_ERAint/t2mmax_z_diff_tfreqs/t2mmax_z_m3-08_dt14/1jun-24aug_aver_tf14_n6_lag1-4/input_dic_part_1.npy'
+ex = np.load(new, encoding='latin1').item()
+#ex = np.load(filename_exp_design1, encoding='latin1').item()
 RV_name = 't2mmax'
 RV = ex[RV_name]
 print('tfreq of ex dic: {} days'.format(ex['tfreq']))
@@ -40,10 +42,9 @@ print('tfreq of ex dic: {} days'.format(ex['tfreq']))
 # =============================================================================
 marray, temperature = functions.import_array(RV, path='pp')
 
-#%%
 # add mask to marray:
 path_masks = os.path.join('/Users/semvijverberg/surfdrive/Scripts/rasterio', 
-                          '{}natearth_with_US_mask.npy'.format(ex['grid_res'])) 
+                          '2.5natearth_with_US_mask.npy') 
 US_mask = np.load(path_masks, encoding='latin1').item()['US_mask']
 nor_lon = US_mask.longitude
 US_mask = US_mask.roll(longitude=2)
@@ -51,8 +52,7 @@ US_mask['longitude'] = nor_lon
 #nor_lat = US_mask.latitude
 #US_mask = US_mask.roll(latitude=1)
 #US_mask['latitude'] = nor_lat
-plotting.xarray_mask_plot(US_mask)
-#%%
+plotting.xarray_plot(US_mask)
 marray.coords['mask'] = (('latitude','longitude'), US_mask.mask)
 tmaxRVperiod = marray.isel(time=ex['RV_period'])
 
@@ -69,9 +69,9 @@ ex['distmetric'] = 'jaccard'
 ex['clusmethod'] = methods[1] ; ex['linkage'] = linkage ; region='U.S.'
 
 
-n_clusters = [2, 3, 4, 5, 6, 7, 8, 9]
-for n in n_clusters:
-    output = functions.clustering_spatial(McKts, ex, n, region, RV)
+#n_clusters = [2, 3, 4, 5, 6, 7, 8, 9]
+#for n in n_clusters:
+#    output = functions.clustering_spatial(McKts, ex, n, region, RV)
 
 #%% Saving output in dictionary
 # settings for tfreq = 14
@@ -131,50 +131,41 @@ RV_array, RVfullts, RVts, new_RV_period = add_mask_to_ncdf(file_name, mask)
 #%%
 var = RV_array.name ; tfreq = file_name[file_name.index('days')-1] 
 RV_array.attrs['units'] = 'Geopotential Height [m]'
-z_data = RV_array.isel(time=new_RV_period)
+data = RV_array.isel(time=new_RV_period)
+data.name = 'allts_' + var
 cls = RV
 # settings clustering
 n_clusters = 4
-region = 'U.S.wide'
+region = 'U.S.'
 ex['clusmethod'] = methods[1]
 linkage = ['complete', 'average']
 ex['linkage'] = linkage[0]
-z_data_norm = z_data / z_data.std()
-z_data_norm.name = 'allts_' + var
-z_data_norm.attrs['units'] = 'std'
-output = functions.clustering_temporal(z_data_norm, ex, n_clusters, RV, tfreq, region=region)
+output = functions.clustering_temporal(data, ex, n_clusters, RV, tfreq, region=region)
 t_meanplot = plotting.find_region(tmaxRVperiod.drop('mask'), region=region)[0].mean(dim='time')
 plotting.xarray_plot(t_meanplot )
                                        
 #%%
-n_hot = 30
+n_hot = 50
 
-z_data.name = '{}hottest_tf{}{}_tf{}{}'.format(n_hot, ex['tfreq'], RV.name, tfreq, var)
-t_spatmean = tmaxRVperiod.where(tmaxRVperiod.mask==True).mean(dim=('latitude', 'longitude'))
-t_std = t_spatmean.std()
-idx = t_spatmean.argsort().squeeze().values
-t_sorted = t_spatmean.isel(time=idx).squeeze()
-t_corr_dates = t_sorted[-n_hot:].time
+data.name = '{}hottest_tf{}{}_tf{}{}'.format(n_hot, ex['tfreq'], RV.name, tfreq, var)
+spatmean = tmaxRVperiod.where(tmaxRVperiod.mask==True).mean(dim=('latitude', 'longitude'))
+idx = spatmean.argsort().squeeze().values
+sorted = spatmean.isel(time=idx).squeeze()
+corr_dates = sorted[-n_hot:].time
 # converting to same hours
-dt_hours = t_corr_dates[0].dt.hour - data.time[0].dt.hour
-z_corr_dates = t_corr_dates - pd.Timedelta(int(dt_hours), unit='h')
-z_hottest = z_data.sel(time=z_corr_dates.values)
-z_std = z_data.std()
-z_hot_norm = z_hottest / z_std
-z_hot_norm.attrs['units'] = 'std'
-output = functions.clustering_temporal(z_hot_norm, ex, n_clusters, RV, tfreq, region=region)
+dt_hours = corr_dates[0].dt.hour - data.time[0].dt.hour
+z_corr_dates = corr_dates - pd.Timedelta(int(dt_hours), unit='h')
+z_hottest = data.sel(time=z_corr_dates.values)
 
+output = functions.clustering_temporal(z_hottest, ex, n_clusters, RV, tfreq, region=region)
+t_hottest = tmaxRVperiod.sel(time=corr_dates.values)
+t_meanplot = plotting.find_region(t_hottest.drop('mask'), region=region)[0].mean(dim='time')
+t_meanplot.name = str(n_hot) + 'hottest' + t_meanplot.name + '_' + region
+plotting.xarray_plot(t_meanplot )
+z_meanplot = plotting.find_region(z_hottest.drop('mask'), region=region)[0].mean(dim='time')
 folder = os.path.join(cls.base_path,'Clustering_temporal/',
                               '{}deg_tfreq{}'.format(ex['grid_res'],tfreq))
-t_hottest = tmaxRVperiod.sel(time=t_corr_dates.values)
-t_meanplot = plotting.find_region(t_hottest.drop('mask'), region=region)[0].mean(dim='time')
-t_meanplot_norm = t_meanplot / t_std
-t_meanplot_norm.name = '{}hottest_{}_{}'.format(n_hot, RV.name, region)
-plotting.xarray_plot(t_meanplot_norm, path=folder, saving=True)
-z_meanplot = plotting.find_region(z_hottest.drop('mask'), region=region)[0].mean(dim='time')
-z_meanplot_norm = z_meanplot / z_std
-z_meanplot_norm.name = '{}hottest_{}_{}'.format(n_hot, var, region)
-plotting.xarray_plot(z_meanplot_norm, path=folder, saving=True)
+plotting.xarray_plot(z_meanplot )
                                        
 #%%
 months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',
