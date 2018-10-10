@@ -104,15 +104,18 @@ def xarray_plot(data, path='default', name = 'default', saving=False):
     proj = ccrs.PlateCarree(central_longitude=cen_lon)
     ax = plt.axes(projection=proj)
     ax.coastlines()
+    vmin = np.round(float(data.min())-0.01,decimals=2) 
+    vmax = np.round(float(data.max())+0.01,decimals=2) 
+    vmin = -max(abs(vmin),vmax) ; vmax = max(abs(vmin),vmax)
     # ax.set_global()
     if 'mask' in list(data.coords.keys()):
         plot = data.where(data.mask==True).plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
                              transform=ccrs.PlateCarree(), add_colorbar=True,
-                             vmin=-0.4, vmax=0.4)
+                             vmin=vmin, vmax=vmax)
     else:
         plot = data.plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
                              transform=ccrs.PlateCarree(), add_colorbar=True,
-                             vmin=-0.4, vmax=0.4)
+                             vmin=vmin, vmax=vmax)
     if saving == True:
         save_figure(data, path=path)
     plt.show()
@@ -145,6 +148,8 @@ def find_region(data, region='Mckinnonplot'):
 
     elif region ==  'U.S.':
         west_lon = -120; east_lon = -70; south_lat = 20; north_lat = 50
+    elif region ==  'U.S.cluster':
+        west_lon = -100; east_lon = -70; south_lat = 20; north_lat = 50
 
     region_coords = [west_lon, east_lon, south_lat, north_lat]
     import numpy as np
@@ -177,7 +182,10 @@ def finalfigure(xrdata, file_name, kwrgs):
 #    clevels = '' ; vmin=-0.4 ; vmax=0.4
     lons = xrdata.longitude.values
     lats = xrdata.latitude.values
-    g = xr.plot.FacetGrid(xrdata, col='lag', col_wrap=kwrgs['column'], sharex=True,
+    strvars = [' {} '.format(var) for var in list(xrdata.dims)]
+    var = [var for var in strvars if var not in ' longitude latitude '][0] 
+    var = var.replace(' ', '')
+    g = xr.plot.FacetGrid(xrdata, col=var, col_wrap=kwrgs['column'], sharex=True,
                       sharey=True, subplot_kws={'projection': kwrgs['map_proj']},
                       aspect= (xrdata.longitude.size) / xrdata.latitude.size, size=3)
     figwidth = g.fig.get_figwidth() ; figheight = g.fig.get_figheight()
@@ -192,11 +200,11 @@ def finalfigure(xrdata, file_name, kwrgs):
         clevels = np.linspace(vmin,vmax,17)
     cmap = kwrgs['cmap']
     
-    n_plots = xrdata.lag.size
+    n_plots = xrdata[var].size
     for n_ax in np.arange(0,n_plots):
         ax = g.axes.flatten()[n_ax]
         print(n_ax)
-        plotdata = xrdata.isel(lag=n_ax)
+        plotdata = xrdata[n_ax]
         im = plotdata.plot.contourf(ax=ax, cmap=cmap,
                                transform=ccrs.PlateCarree(),
                                subplot_kws={'projection': kwrgs['map_proj']},
@@ -226,7 +234,17 @@ def finalfigure(xrdata, file_name, kwrgs):
     #%%
     return
         
-
+def EOF(data, neofs=1, center=False, weights=None):
+    import numpy as np
+    from eofs.xarray import Eof
+    # Create an EOF solver to do the EOF analysis. Square-root of cosine of
+    # latitude weights are applied before the computation of EOFs.
+    coslat = np.cos(np.deg2rad(data.coords['latitude'].values)).clip(0., 1.)
+    wgts = np.sqrt(coslat)[..., np.newaxis]
+    solver = Eof(np.squeeze(data), center=False, weights=wgts)
+    eof_output = solver.eofsAsCovariance(neofs=neofs)
+    eof_output.attrs['units'] = 'mode'
+    return eof_output, solver
   
 #    
 #    for row in xrdata.names_row.values:

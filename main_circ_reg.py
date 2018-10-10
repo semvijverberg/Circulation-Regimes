@@ -6,7 +6,7 @@ Created on Tue Jul 10 11:51:50 2018
 @author: semvijverberg
 """
 import os
-os.chdir('/Users/semvijverberg/surfdrive/Scripts/Circulation-Regimes3')
+os.chdir('/Users/semvijverberg/surfdrive/Scripts/Circulation-Regimes')
 script_dir = os.getcwd()
 import functions
 import numpy as np
@@ -77,7 +77,7 @@ for n in n_clusters:
 # settings for tfreq = 14
 ex['linkage'] = linkage[1]
 data = McKts
-n_clusters =9
+n_clusters =8
 # Create mask of cluster
 output = functions.clustering_spatial(McKts, ex, n_clusters, region, RV)
 selclus = 3
@@ -87,6 +87,9 @@ mask2 = np.array(np.nan_to_num(output.where(output == selclus)), dtype=bool)
 mask1[mask2] = True
 mask = mask1
 tmaxRVperiod.coords['mask'] = (('latitude','longitude'), mask)
+
+# make tmax RV:
+RV_array, RVfullts, RVts, new_RV_period = add_mask_to_ncdf(RV.filename_pp, mask)
 
 def add_mask_to_ncdf(file_name, mask):
     # =============================================================================
@@ -186,12 +189,13 @@ ex['path_exp_periodmask'] = os.path.join(RV.base_path, ex['exp_pp'],
                               RV_name_range + ex['linkage'][:4] + ex['clusmethod'][:4] + 
                               ex['distmetric'][:4])
 if os.path.isdir(ex['path_exp_periodmask']) != True : os.makedirs(ex['path_exp_periodmask'])
-filename = str( RV_name +'_'+ ex['path_exp_periodmask'].split('/')[-1] 
+filename = str( RV_name +'_'+ str(ex['startyear']) +'-'+ str(ex['endyear']) +'_'+
+               ex['path_exp_periodmask'].split('/')[-1] 
                 + '_tf{}_n{}'.format(ex['tfreq'], n_clusters) )
 to_dict = dict( {'RVfullts' : RVfullts,
                 'clusterout': output,
                 'selclus'   : selclus,
-                'RV_array'      : RV_array   } )
+                'RV_array'  : RV_array   } )
 np.save(os.path.join(ex['path_pp'],'RVts2.5',filename+'.npy'), to_dict)
 np.save(os.path.join(ex['path_exp_periodmask'], 'input_tig_dic.npy'), ex)
 
