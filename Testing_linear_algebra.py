@@ -43,31 +43,82 @@ if os.path.isdir(ex['fig_path']) == False: os.makedirs(ex['fig_path'])
 T95name = 'PEP-T95TimeSeries.txt'
 mcKtsfull, datesmcK = func_mcK.read_T95(T95name, ex)
 datesmcK = func_mcK.make_datestr(datesmcK, ex)
+# full Time series of T95 (Juni, Juli, August summer)
+mcKts = mcKtsfull.sel(time=datesmcK)
+# binary time serie when T95 exceeds 1 std
+hotdaythreshold = mcKts.mean(dim='time').values + mcKts.std().values
+hotts = mcKts.where( mcKts.values > hotdaythreshold) 
+hotdates = hotts.dropna(how='all', dim='time').time
+# plotting same figure as in paper
+plotpaper = mcKtsfull.sel(time=pd.DatetimeIndex(start='2012-06-23', end='2012-08-21', 
+                                freq=(datesmcK[1] - datesmcK[0])))
+plotpaperhotdays = plotpaper.where( plotpaper.values > hotdaythreshold) 
+plotpaperhotdays = plotpaperhotdays.dropna(how='all', dim='time').time
+plt.figure()
+plotpaper.plot()
+plt.axhline(y=hotdaythreshold)
+for days in plotpaperhotdays.time.values:
+    plt.axvline(x=days)
+
+
+
 # Load in external ncdf
 sst_ERAname = 'sst_1979-2017_2mar_31aug_dt-1days_2.5deg.nc'
 t2m_ERAname = 't2mmax_1979-2017_2mar_31aug_dt-1days_2.5deg.nc'
 # full globe - full time series
-varfullgl = func_mcK.import_array(t2m_ERAname, ex)
+varfullgl = func_mcK.import_array(sst_ERAname, ex)
+# Converting Mckinnon timestemp to match xarray timestemp
 matchdaysmcK = func_mcK.to_datesmcK(datesmcK, datesmcK[0].hour, varfullgl.time[0].dt.hour)
-mcKts = mcKtsfull.sel(time=datesmcK)
-# only hot days
-var = varfullgl.sel(time=matchdaysmcK)
+# full globe - only (mcKinnon) summer days (Juni, Juli, August)
+varsumgl = varfullgl.sel(time=matchdaysmcK)
+# region mckinnon - Mckinnon summer days (Juni, Juli, August)
+varsumreg = func_mcK.find_region(varsumgl, region='Mckinnonplot')[0]
 # region mckinnon - full time series
-varfull = func_mcK.find_region(varfullgl, region='Mckinnonplot')[0]
+varfullreg = func_mcK.find_region(varfullgl, region='Mckinnonplot')[0]
+## region mckinnon - only (mcKinnon) summer 
+func_mcK.xarray_plot(varsumreg.mean(dim='time')) 
 
-hotts = mcKts.where( mcKts.std().values>mcKts.values) 
-plotpaper = mcKtsfull.sel(time=pd.DatetimeIndex(start='2012-06-23', end='2012-08-21', 
-                                freq=(datesmcK[1] - datesmcK[0])))
-plotpaper.plot()
-std = var.std(dim='time')
+for i in range(3):
+    func_mcK.xarray_plot(varsumreg.isel(time=i)) 
+
+
+std = varsumgl.std(dim='time')
 # not merging hot days which happen consequtively
-hotdates = hotts.dropna(how='all', dim='time').time
+
 matchhotdates = func_mcK.to_datesmcK(hotdates, hotdates[0].dt.hour, varfullgl.time[0].dt.hour)
+# Select concurrent hot days
+varhotdays = varsumreg.sel(time=matchhotdates)
+
+matchpaperplothotdates = func_mcK.to_datesmcK(plotpaperhotdays.time, hotdates[0].dt.hour, varhotdays.time[0].dt.hour)
+plotting = varhotdays.sel(time=matchpaperplothotdates[:5])
+for day in matchpaperplothotdates[:5]:
+    func_mcK.xarray_plot(varfullreg.sel(time=day)) 
+
+#%% Mean over 230 hot days
+lags = [0, 50]
+
+array = np.zeros( (len(lags),varsumreg.latitude.size, varsumreg.longitude.size) )
+xrdata = xr.DataArray(data=array, coords=[lags, varsumreg.latitude, varsumreg.longitude], 
+                      dims=['lag','latitude','longitude'], name='McK_Composite_diff_lags')
+for lag in lags:
+    idx = lags.index(lag)
+    dates_min_lag = matchhotdates - pd.Timedelta(int(lag), unit='d')
+    
+    varhotdays = varfullreg.sel(time=dates_min_lag).mean(dim='time')
+    xrdata[idx] = varhotdays
+    
+xrdata.attrs['units'] = 'Kelvin (absolute values)'
+file_name = os.path.join(ex['fig_path'], 
+             'mean composite lag{}-{}.png'.format(lags[0], lags[-1]))
+title = 'mean composite - absolute values \nT95 McKinnon data - ERA-I SST'
+kwrgs = dict( {'vmin' : -0.4, 'vmax' : 0.4, 'title' : title, 'clevels' : 'notdefault',
+               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
+func_mcK.finalfigure(xrdata, file_name, kwrgs) 
 
 
 #%% Perform eof from package for Region Mckinnon
-eof_output, solver = func_mcK.EOF(varfull, neofs=12)
-lag=50
+eof_output, solver = func_mcK.EOF(varsumreg, neofs=12)
+lag=0
 title = 'EOFs on full variability'
 kwrgs = dict( {'vmin' : -1, 'vmax' : 1, 'title' : title, 'clevels' : 'notdefault',
                'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
@@ -82,11 +133,11 @@ func_mcK.finalfigure(plotting, file_name, kwrgs)
 # =============================================================================
 # Remember, here taking SVD of matrix_sst (not the same as eof analysis, that is: SVD(F.T*F))
 # =============================================================================
-dimspace = varfull[0].size
-dimtime  = varfull.time.size
+dimspace = varsumreg[0].size
+dimtime  = varsumreg.time.size
 
 
-matrix_sst = np.reshape( varfull.values , (varfull.time.size, varfull[0].size) )
+matrix_sst = np.reshape( varsumreg.values , (varsumreg.time.size, varsumreg[0].size) )
 matrix_sst = np.nan_to_num(matrix_sst)
 dimtime = matrix_sst.shape[0]
 dimspace = matrix_sst.shape[1]
@@ -98,9 +149,9 @@ R = np.dot( np.transpose(matrix_sst), matrix_sst )
 Rsvd = np.dot(np.dot(V.T,np.diag(s**2)),V)
 i=0
 plt.figure()
-plt.imshow(np.reshape( R[i], (varfull.latitude.size, varfull.longitude.size) ) )
+plt.imshow(np.reshape( R[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 plt.figure()
-plt.imshow(np.reshape( Rsvd[i], (varfull.latitude.size, varfull.longitude.size) ) )
+plt.imshow(np.reshape( Rsvd[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 plt.figure()
 
 #%% check if RC = RLambda  with SVD
@@ -116,9 +167,9 @@ CLambda = np.dot(  Csvd, Lambda )
 #plot
 i = i
 plt.figure()
-plt.imshow(np.reshape( RC.T[i,:], (varfull.latitude.size, varfull.longitude.size) ) )
+plt.imshow(np.reshape( RC.T[i,:], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 plt.figure()
-plt.imshow(np.reshape( CLambda.T[i], (varfull.latitude.size, varfull.longitude.size) ) )
+plt.imshow(np.reshape( CLambda.T[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 print('Above figure should be the same.')
 
 #%% Lambda values of package eof versus SVD
@@ -140,14 +191,12 @@ for i in [0,1,2,5]:
     plt.figure()
     plt.imshow(eofs[i], vmin=vmin, vmax=vmax ); plt.colorbar()
     plt.figure()
-    plt.imshow(np.reshape( V[i], (varfull.latitude.size, varfull.longitude.size) ), 
+    plt.imshow(np.reshape( V[i], (varsumreg.latitude.size, varsumreg.longitude.size) ), 
                vmin=vmin, vmax=vmax); plt.colorbar()
 
 print('C and V not the same due to filling in zeros into the matrix_sst for SVD')
 
 #%% Check if A = FC and F = AC.T
-
-
 C = Csvd
 
 A = np.dot( matrix_sst, C )
@@ -156,9 +205,9 @@ F = np.dot( A, C.T)
 ATA2 = np.dot( np.dot(F,C).T, np.dot(F,C) )
 
 plt.figure()
-plt.imshow(np.reshape( F[i], (varfull.latitude.size, varfull.longitude.size) ) )
+plt.imshow(np.reshape( F[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 plt.figure()
-plt.imshow(np.reshape( matrix_sst[i], (varfull.latitude.size, varfull.longitude.size) ) )
+plt.imshow(np.reshape( matrix_sst[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 
 #%% find expansion coefficients (PCi) with eofs from svd, is the same as A = np.dot( F, C )
 n_eofs = 1
@@ -175,6 +224,7 @@ plt.plot(A[:,0] - PCi[:,0])
 
 #%% find expansion coefficients with eofs from SVD:   
 Ceof = np.reshape( eofs, (maxspace, dimspace) ) 
+Ceof = np.nan_to_num(Ceof)
 
 
 n_eofs = 2
@@ -217,14 +267,13 @@ plt.figure()
 plt.plot(PCi_svd_n0)
 
 
-
-# =============================================================================
-# Checked up to here
-# =============================================================================
-
-
 #%% Check C = V
 # calcuate covariance matrix normal way (Ft*F)
+U, s, V = np.linalg.svd(matrix_sst, full_matrices=True)
+matrix_sst = np.reshape( varsumreg.values , (varsumreg.time.size, varsumreg[0].size) )
+matrix_sst = np.nan_to_num(matrix_sst)
+dimtime = matrix_sst.shape[0]
+dimspace = matrix_sst.shape[1]
 R = np.dot( np.transpose(matrix_sst), matrix_sst )
 # Perform SVD to get obtain matrix V
 Lamdasvd = np.diag(s**2)
@@ -234,16 +283,24 @@ Rsvd = np.dot( np.dot( np.dot(V.T, np.diag(s).T ), np.diag(s) ), V )
 Rsvd = np.dot( np.dot( V.T, Lambdacheck ), V )
 i=1
 plt.figure()
-plt.imshow(np.reshape( R[i], (varfull.latitude.size, varfull.longitude.size) ) )
+plt.imshow(np.reshape( R[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 plt.figure()
-plt.imshow(np.reshape( Rsvd[i], (varfull.latitude.size, varfull.longitude.size) ) )
+plt.imshow(np.reshape( Rsvd[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 plt.figure()
 
 plt.figure()
-plt.imshow(np.reshape( C[i], (varfull.latitude.size, varfull.longitude.size) ) )
+plt.imshow(np.reshape( Ceof[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 plt.figure()
-plt.imshow(np.reshape( V.T[:,i], (varfull.latitude.size, varfull.longitude.size) ) )
+plt.imshow(np.reshape( V.T[:,i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 plt.figure()
+
+
+
+
+# =============================================================================
+# Checked up to here
+# =============================================================================
+
 
 #%% Rebuild matrix_sst from svd 
 s_nxm = np.zeros( (dimtime, dimspace) )
@@ -251,14 +308,14 @@ for i in range(dimspace):
     s_nxm[i,i] = s[i]
 F = np.dot( np.dot(U, s_nxm), V )
 
-i=100
+i=0
 plt.figure()
-plt.imshow(np.reshape( F[i], (varfull.latitude.size, varfull.longitude.size) ) )
+plt.imshow(np.reshape( F[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 plt.figure()
-plt.imshow(np.reshape( matrix_sst[i], (varfull.latitude.size, varfull.longitude.size) ) )
+plt.imshow(np.reshape( matrix_sst[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 
 #%% Create Prewhitening operator
-eofs_kept = 100
+eofs_kept = 5
 s_nxm_inv = np.zeros( (dimtime, dimspace) )
 for i in range(eofs_kept):
     s_nxm_inv[i,i] = s[i]**-1
@@ -268,20 +325,20 @@ F = np.dot( np.dot(U, s_nxm_inv), V )
 
 for i in range(4):
     plt.figure()
-    plt.imshow(np.reshape( Trans[i], (varfull.latitude.size, varfull.longitude.size) ) )
+    plt.imshow(np.reshape( Trans[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
     plt.figure()
-    plt.imshow(np.reshape( V[i], (varfull.latitude.size, varfull.longitude.size) ) )
+    plt.imshow(np.reshape( V[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
 
 #%% Rebuilt time series with inverse of eigenvalues
 
 for i in range(4):
     plt.figure()
-    plt.imshow(np.reshape( F[i], (varfull.latitude.size, varfull.longitude.size) ) )
+    plt.imshow(np.reshape( F[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
     plt.figure()
-    plt.imshow(np.reshape( matrix_sst[i], (varfull.latitude.size, varfull.longitude.size) ) )
+    plt.imshow(np.reshape( matrix_sst[i], (varsumreg.latitude.size, varsumreg.longitude.size) ) )
     
 #%% Rebuilt time series with giving equal weight to dominant eigenvalues
-eofs_kept = 100
+eofs_kept = 1
 Ucopy = np.dot( matrix_sst, matrix_sst.T )
 s_nxm_1 = np.zeros( (dimtime, dimspace) )
 for i in range(eofs_kept):
@@ -289,8 +346,8 @@ for i in range(eofs_kept):
 F = np.dot( np.dot(U, s_nxm_1), V )
 
 #%%
-F_lonlat = np.reshape(F, (dimtime, varfull.latitude.size, varfull.longitude.size))
-Transfull = xr.DataArray(F_lonlat, coords=[varfull.time, varfull.latitude, varfull.longitude], 
+F_lonlat = np.reshape(F, (dimtime, varsumreg.latitude.size, varsumreg.longitude.size))
+Transfull = xr.DataArray(F_lonlat, coords=[varsumreg.time, varsumreg.latitude, varsumreg.longitude], 
                          dims=['time', 'latitude', 'longitude'])
 
 eof_output, solver = func_mcK.EOF(Transfull, neofs=4)
@@ -302,12 +359,12 @@ file_name = os.path.join(ex['fig_path'],
 plotting = eof_output
 func_mcK.finalfigure(plotting, file_name, kwrgs)
 
-lag = 50
+lag = 0
 dates_min_lag = matchhotdates - pd.Timedelta(int(lag), unit='d')
 Transhotdays = Transfull.sel(time=dates_min_lag)
 
 eof_output, solver = func_mcK.EOF(Transhotdays, neofs=4)
-title = 'EOFs on full variability'
+title = 'EOFs on hot days variability'
 kwrgs = dict( {'vmin' : -1*(1*np.std(F)), 'vmax' : 1*np.std(F), 'title' : title, 'clevels' : 'notdefault',
                'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
 file_name = os.path.join(ex['fig_path'], 
@@ -315,7 +372,7 @@ file_name = os.path.join(ex['fig_path'],
 plotting = eof_output
 func_mcK.finalfigure(plotting, file_name, kwrgs)
 
-eof_output, solver = func_mcK.EOF(varfull, neofs=4)
+eof_output, solver = func_mcK.EOF(varsumreg, neofs=4)
 title = 'EOFs on full variability'
 kwrgs = dict( {'vmin' : -1, 'vmax' : 1, 'title' : title, 'clevels' : 'notdefault',
                'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
@@ -331,8 +388,8 @@ func_mcK.finalfigure(plotting, file_name, kwrgs)
 #    plt.imshow(np.reshape( matrix_sst[i], (varfull.latitude.size, varfull.longitude.size) ) )
 
 #%% Recreate composite:
-F_lonlat = np.reshape(F, (dimtime, varfull.latitude.size, varfull.longitude.size))
-Transfull = xr.DataArray(F_lonlat, coords=[varfull.time, varfull.latitude, varfull.longitude], 
+F_lonlat = np.reshape(F, (dimtime, varsumreg.latitude.size, varsumreg.longitude.size))
+Transfull = xr.DataArray(F_lonlat, coords=[varsumreg.time, varsumreg.latitude, varsumreg.longitude], 
                          dims=['time', 'latitude', 'longitude'])
 lag = 50
 dates_min_lag = matchhotdates - pd.Timedelta(int(lag), unit='d')
@@ -340,9 +397,8 @@ Transhotdays = Transfull.sel(time=dates_min_lag)
 
 
 lags = [0, 5, 10, 15, 20, 30, 40, 50]
-varfull = func_mcK.find_region(varfull, region='Mckinnonplot')[0]
-array = np.zeros( (len(lags),varfull.latitude.size, varfull.longitude.size) )
-xrdata = xr.DataArray(data=array, coords=[lags, varfull.latitude, varfull.longitude], 
+array = np.zeros( (len(lags),varsumreg.latitude.size, varsumreg.longitude.size) )
+xrdata = xr.DataArray(data=array, coords=[lags, varsumreg.latitude, varsumreg.longitude], 
                       dims=['lag','latitude','longitude'], name='Trans_hotdays')
          
 for lag in lags:
@@ -379,7 +435,7 @@ func_mcK.finalfigure(plotting, file_name, kwrgs)
 #%% EOFS on composite hot days
 lag = 50
 dates_min_lag = matchhotdates - pd.Timedelta(int(lag), unit='d')
-varhotdays = varfull.sel(time=dates_min_lag)
+varhotdays = varfullreg.sel(time=dates_min_lag)
 eof_output, solver = func_mcK.EOF(varhotdays, neofs=6)
 title = 'EOFs on composite (hot days, n={})'.format(matchhotdates.time.size) 
 kwrgs = dict( {'vmin' : -1, 'vmax' : 1, 'title' : title, 'clevels' : 'notdefault',

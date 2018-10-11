@@ -150,6 +150,10 @@ def find_region(data, region='Mckinnonplot'):
         west_lon = -120; east_lon = -70; south_lat = 20; north_lat = 50
     elif region ==  'U.S.cluster':
         west_lon = -100; east_lon = -70; south_lat = 20; north_lat = 50
+    elif region ==  'PEPrectangle':
+        west_lon = -215; east_lon = -125; south_lat = 19; north_lat = 50
+    elif region ==  'Pacific':
+        west_lon = -215; east_lon = -120; south_lat = 19; north_lat = 60
 
     region_coords = [west_lon, east_lon, south_lat, north_lat]
     import numpy as np
@@ -176,6 +180,7 @@ def find_region(data, region='Mckinnonplot'):
         lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
 
     return all_values, region_coords
+
 
 def finalfigure(xrdata, file_name, kwrgs):
     #%%

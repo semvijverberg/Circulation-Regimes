@@ -94,6 +94,26 @@ plotting = varhotdays.sel(time=matchpaperplothotdates[:5])
 for day in matchpaperplothotdates[:5]:
     func_mcK.xarray_plot(varfullreg.sel(time=day)) 
 
+#%% Mean over 230 hot days
+lags = [0, 50]
+
+array = np.zeros( (len(lags),varsumreg.latitude.size, varsumreg.longitude.size) )
+xrdata = xr.DataArray(data=array, coords=[lags, varsumreg.latitude, varsumreg.longitude], 
+                      dims=['lag','latitude','longitude'], name='McK_Composite_diff_lags')
+for lag in lags:
+    idx = lags.index(lag)
+    dates_min_lag = matchhotdates - pd.Timedelta(int(lag), unit='d')
+    
+    varhotdays = varfullreg.sel(time=dates_min_lag).mean(dim='time')
+    xrdata[idx] = varhotdays
+    
+xrdata.attrs['units'] = 'Kelvin (absolute values)'
+file_name = os.path.join(ex['fig_path'], 
+             'mean composite lag{}-{}.png'.format(lags[0], lags[-1]))
+title = 'mean composite - absolute values \nT95 McKinnon data - ERA-I SST'
+kwrgs = dict( {'vmin' : -0.4, 'vmax' : 0.4, 'title' : title, 'clevels' : 'notdefault',
+               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
+func_mcK.finalfigure(xrdata, file_name, kwrgs) 
 #%% EOFS on composite hot days
 lag = 0
 dates_min_lag = matchhotdates - pd.Timedelta(int(lag), unit='d')
@@ -320,6 +340,7 @@ for date in dates:
 #    nparray = nparray[np.isnan(nparray) == False]
 #    percentile = np.percentile(np.abs(nparray), ex['percentile'])
     randhot[idx] = singledate.where( (singledate > percentile) | (singledate < -percentile))
+    randhot[idx] = singledate
     
 randhot.attrs['units'] = 'upper 20 percentile anomalies'
 title = 'exceeding {}th percentile of mean composite \nT95 McKinnon data - ERA-I SST'.format(ex['percentile'])
