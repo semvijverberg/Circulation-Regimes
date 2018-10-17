@@ -13,6 +13,7 @@ from netCDF4 import num2date
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import matplotlib.colors as colors
+from eofs.xarray import Eof
 from shapely.geometry.polygon import LinearRing
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
@@ -77,6 +78,30 @@ def import_array(filename, ex):
 #    print('temporal frequency \'dt\' is: \n{}'.format(dates[1]- dates[0]))
     marray['time'] = dates
     return marray
+
+def save_figure(data, path):
+    import os
+    import matplotlib.pyplot as plt
+#    if 'path' in locals():
+#        pass
+#    else:
+#        path = '/Users/semvijverberg/Downloads'
+    if path == 'default':
+        path = '/Users/semvijverberg/Downloads'
+    else:
+        path = path
+    import datetime
+    today = datetime.datetime.today().strftime("%d-%m-%y_%H'%M")
+    if data.name != '':
+        name = data.name.replace(' ', '_')
+    if 'name' in locals():
+        print('input name is: {}'.format(name))
+        name = name + '.jpeg'
+        pass
+    else:
+        name = 'fig_' + today + '.jpeg'
+    print(('{} to path {}'.format(name, path)))
+    plt.savefig(os.path.join(path,name), format='jpeg', dpi=300, bbox_inches='tight')
 
 def xarray_plot(data, path='default', name = 'default', saving=False):
     # from plotting import save_figure
@@ -154,6 +179,8 @@ def find_region(data, region='Mckinnonplot'):
         west_lon = -215; east_lon = -125; south_lat = 19; north_lat = 50
     elif region ==  'Pacific':
         west_lon = -215; east_lon = -120; south_lat = 19; north_lat = 60
+    elif region ==  'Whole':
+        west_lon = -360; east_lon = -10; south_lat = -60; north_lat = 60
 
     region_coords = [west_lon, east_lon, south_lat, north_lat]
     import numpy as np
@@ -230,7 +257,7 @@ def finalfigure(xrdata, file_name, kwrgs):
         gl.xlabels_bottom = False
 #        gl.yformatter = LATITUDE_FORMATTER
         
-    g.fig.text(0.5, 0.9, kwrgs['title'], fontsize=15, horizontalalignment='center')
+    g.fig.text(0.5, 0.95, kwrgs['title'], fontsize=15, horizontalalignment='center')
     cbar_ax = g.fig.add_axes([0.25, (figheight/25)/n_plots, 
                                   0.5, (figheight/25)/n_plots])
     plt.colorbar(im, cax=cbar_ax, orientation='horizontal', 
@@ -250,7 +277,147 @@ def EOF(data, neofs=1, center=False, weights=None):
     eof_output = solver.eofsAsCovariance(neofs=neofs)
     eof_output.attrs['units'] = 'mode'
     return eof_output, solver
-  
+
+def project_eof_field(xarray, solver, scaling, n_eofs_used):
+    eofs = solver.eofs(neofs=n_eofs_used, eofscaling=scaling).values
+    n_eofs  = eofs[:,0,0].size
+    n_space = eofs[0].size
+    n_time  = xarray.time.size
+    
+    matrix = np.reshape(xarray.values, (n_time, xarray[0].size))
+    matrix = np.nan_to_num(matrix)
+
+    # convert eof output to matrix
+    Ceof = np.reshape( eofs, (n_eofs, n_space) ) 
+    C = np.nan_to_num(Ceof)
+
+#    # Calculate std over entire eof time series
+#    PCs_all = solver.pcs(pcscaling=scaling, npcs=n_eofs_used)
+#    PCstd_all = [float(np.std(PCs_all[:,i])) for i in range(n_eofs_used)]
+    
+    PCi = np.zeros( (n_time, n_eofs_used) )
+    PCstd = np.zeros( (n_eofs_used) )
+#    PCi_unitvar = np.zeros( (n_time, n_eofs_used) )
+    PCi_mean = np.zeros( (n_eofs_used) )
+    for i in range(n_eofs_used):
+    
+        PCi[:,i] = np.dot( matrix, C[i,:])
+        
+        PCstd[i] = np.std(PCi[:,i])
+        PCi_mean[i] = np.mean(PCi[:,i])
+    
+    return PCi, PCstd, PCi_mean
+
+
+
+def extract_pattern(Composite, totaltimeserie, scaling, n_eofs_used, weights):
+    # Get oefs from Composite
+    
+    # Create an EOF solver to do the EOF analysis. Square-root of cosine of
+    # latitude weights are applied before the computation of EOFs.
+    coslat = np.cos(np.deg2rad(Composite.coords['latitude'].values)).clip(0., 1.)
+    wgts = np.sqrt(coslat)[..., np.newaxis]
+    solver = Eof(np.squeeze(Composite), center=False, weights=wgts)
+    
+    Composite = Composite * weights
+    totaltimeserie = totaltimeserie * weights
+
+    
+    # Project hot day fields upon EOFS 
+    PCi_comp, PCstd_comp, PCi_mean_comp = project_eof_field(
+                                    Composite, solver, scaling, n_eofs_used)
+
+    # Project total timeseries on main EOFs
+    PCi_all, PCstd_all, PCi_mean_nor = project_eof_field(
+                                    totaltimeserie, solver, scaling, n_eofs_used)
+
+    # Determine deviating PCs of compososite with respect to totaltimeserie 
+    # using absolute value of normalized PCs
+    #### Depricated #####
+    #    ratio_std = PCstd_nor / PCstd_hot
+    #    ratio_mean = (PCi_mean_nor / PCi_mean_hot) * np.median(PCi_mean_nor)**-1
+    #    plt.figure()
+    #    plt.title('Ratio variability in \'normal\' time series\ndivided by variability between hot days')
+    #    plt.plot(ratio_std)
+    #    plt.figure()
+    #    plt.title('Ratio of mean PC values in \'normal\' time series\ndivided by hot days')
+    #    plt.ylim( (np.min(ratio_mean)-1, np.max(ratio_mean)+1  ) )
+    #    plt.plot(ratio_mean)
+    #### End ######
+    
+    PCstd_all = [float(np.std(PCi_all[:,i])) for i in range(n_eofs_used)]
+    # Normalize PC values w.r.t. variability in total time serie
+    PCi_mean_comp = PCi_mean_comp / PCstd_all
+#    plt.figure()
+#    plt.ylim( (np.min(PCi_mean_comp)-1, np.max(PCi_mean_comp)+1  ) )
+#    plt.plot(PCi_mean_comp)
+#    plt.plot(PCi_mean_comp)
+      
+#    for i in range(2):
+#        plt.figure()
+#        plt.title('PC {}\nnormalized by std (std from whole summer PC '
+#                  'timeseries)'.format(i))
+#        plt.axhline(0, color='black')
+#        plt.plot(PCi_comp[:,i]/PCstd_all[i])
+#        plt.axhline(PCi_mean_comp[i])
+        
+#    plt.figure()
+#    plt.plot(solver.eigenvalues()[:n_eofs_used])
+#    print('Mean value PC time series: {}'.format(PCi_mean[0]))
+#    print('std value PC time series: {}'.format(PCstd[0]))
+        
+    
+    def Relevant_PCs(PCi_mean_comp, solver, scaling, n_eofs_used):
+        
+        absolute_values = xr.DataArray(data=PCi_mean_comp, coords=[range(n_eofs_used)], 
+                              dims=['eofs'], name='xarray')
+        anomalous = absolute_values.where(abs(absolute_values.values) > 
+                          (absolute_values.mean(dim='eofs') + absolute_values.std()).values)
+        PC_imp_abs = anomalous.dropna(how='all', dim='eofs')
+    
+        absolute_values = xr.DataArray(data=PCi_mean_comp, coords=[range(n_eofs_used)], 
+                                  dims=['eofs'], name='xarray')
+        return PC_imp_abs, absolute_values
+    
+#    PC_imp_var, absolute_values = Relevant_PCs(ratio_std, solver, scaling, n_eofs_used)
+#    PC_imp_rel, absolute_values = Relevant_PCs(ratio_mean, solver, scaling, n_eofs_used)
+    PC_imp_abs, absolute_values = Relevant_PCs(PCi_mean_comp, solver, scaling, n_eofs_used)
+    
+    plt.figure()
+    plt.title('Pcs deviation (in std) from total variability')
+    for n_eof in range(n_eofs_used):
+        plt.axhline(0, color='black')
+        plt.axhline(absolute_values.mean(dim='eofs') + absolute_values.std().values, color='red')
+        plt.axhline(-1*(absolute_values.mean(dim='eofs') + absolute_values.std().values), color='blue')  
+        plt.scatter(n_eof, absolute_values[n_eof])
+    
+    important_modes = list(PC_imp_abs.eofs.values)
+    array = np.zeros( (len(PC_imp_abs),Composite.latitude.size, Composite.longitude.size) )
+    important_eofs = xr.DataArray(data=array, coords=[important_modes, Composite.latitude, Composite.longitude], 
+                          dims=['eof','latitude','longitude'], name='eofs')
+    eofs = solver.eofs(neofs=n_eofs_used, eofscaling=scaling)
+
+    for eof in important_modes:
+        idx = important_modes.index(eof)
+        single_eof = eofs.sel(mode=eof) * np.sign(absolute_values.sel(eofs=eof))
+        important_eofs[idx] = single_eof
+        
+    # calculate weighted mean of relevant PCs (weighted on deviation from total
+    # variability)
+    weights = abs(PC_imp_abs) / np.mean(abs(PC_imp_abs))
+    important_eofs_w = xr.DataArray(data=array, coords=[important_modes, Composite.latitude, Composite.longitude], 
+                          dims=['eof','latitude','longitude'], name='eofs')
+    for eof in important_modes:
+        idx = important_modes.index(eof)
+        single_eof = eofs.sel(mode=eof) * np.sign(absolute_values.sel(eofs=eof))
+        important_eofs_w[idx] = single_eof * weights.sel(eofs=eof)
+    
+    wmean_eofs = important_eofs_w.mean(dim='eof', keep_attrs = True) 
+    
+    
+    return important_eofs, wmean_eofs, PC_imp_abs
+    
+    
 #    
 #    for row in xrdata.names_row.values:
 #        rowidx = list(xrdata.names_row.values).index(row)

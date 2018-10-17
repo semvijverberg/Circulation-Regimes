@@ -27,9 +27,9 @@ find_region = plotting.find_region
 # load post processed data
 #path = '/Users/semvijverberg/surfdrive/Data_ERAint/t2m_u_m4-8_dt10/1jun-24aug_2.5natearth_with_US_mask/'
 #ex = np.load(os.path.join(path, 'input_dic_part_1.npy')).item()
-#new = '/Users/semvijverberg/surfdrive/Data_ERAint/t2mmax_z_diff_tfreqs/t2mmax_z_m3-08_dt14/1jun-24aug_aver_tf14_n6_lag1-4/input_dic_part_1.npy'
-#ex = np.load(new, encoding='latin1').item()
-ex = np.load(filename_exp_design1, encoding='latin1').item()
+new = '/Users/semvijverberg/surfdrive/Data_ERAint/t2mmax_z_diff_tfreqs/t2mmax_z_m3-08_dt14/1jun-24aug_aver_tf14_n6_lag1-4/input_dic_part_1.npy'
+ex = np.load(new, encoding='latin1').item()
+#ex = np.load(filename_exp_design1, encoding='latin1').item()
 RV_name = 't2mmax'
 RV = ex[RV_name]
 print('tfreq of ex dic: {} days'.format(ex['tfreq']))
