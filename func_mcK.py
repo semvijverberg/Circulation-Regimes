@@ -181,6 +181,8 @@ def find_region(data, region='Mckinnonplot'):
         west_lon = -215; east_lon = -120; south_lat = 19; north_lat = 60
     elif region ==  'Whole':
         west_lon = -360; east_lon = -10; south_lat = -60; north_lat = 60
+    elif region ==  'Southern':
+        west_lon = -20; east_lon = -2; south_lat = -80; north_lat = -60
 
     region_coords = [west_lon, east_lon, south_lat, north_lat]
     import numpy as np
@@ -235,7 +237,7 @@ def finalfigure(xrdata, file_name, kwrgs):
     n_plots = xrdata[var].size
     for n_ax in np.arange(0,n_plots):
         ax = g.axes.flatten()[n_ax]
-        print(n_ax)
+#        print(n_ax)
         plotdata = xrdata[n_ax]
         im = plotdata.plot.contourf(ax=ax, cmap=cmap,
                                transform=ccrs.PlateCarree(),
@@ -383,13 +385,13 @@ def extract_pattern(Composite, totaltimeserie, scaling, n_eofs_used, weights):
 #    PC_imp_rel, absolute_values = Relevant_PCs(ratio_mean, solver, scaling, n_eofs_used)
     PC_imp_abs, absolute_values = Relevant_PCs(PCi_mean_comp, solver, scaling, n_eofs_used)
     
-    plt.figure()
-    plt.title('Pcs deviation (in std) from total variability')
-    for n_eof in range(n_eofs_used):
-        plt.axhline(0, color='black')
-        plt.axhline(absolute_values.mean(dim='eofs') + absolute_values.std().values, color='red')
-        plt.axhline(-1*(absolute_values.mean(dim='eofs') + absolute_values.std().values), color='blue')  
-        plt.scatter(n_eof, absolute_values[n_eof])
+#    plt.figure()
+#    plt.title('Pcs deviation (in std) from total variability')
+#    for n_eof in range(n_eofs_used):
+#        plt.axhline(0, color='black')
+#        plt.axhline(absolute_values.mean(dim='eofs') + absolute_values.std().values, color='red')
+#        plt.axhline(-1*(absolute_values.mean(dim='eofs') + absolute_values.std().values), color='blue')  
+#        plt.scatter(n_eof, absolute_values[n_eof])
     
     important_modes = list(PC_imp_abs.eofs.values)
     array = np.zeros( (len(PC_imp_abs),Composite.latitude.size, Composite.longitude.size) )

@@ -44,14 +44,12 @@ ex = dict(
 
 if os.path.isdir(ex['fig_path']) == False: os.makedirs(ex['fig_path'])
 
-#'Mckinnonplot', 'U.S.', 'U.S.cluster', 'PEPrectangle', 'Pacific', Whole
+#'Mckinnonplot', 'U.S.', 'U.S.cluster', 'PEPrectangle', 'Pacific', 'Whole', 'Southern'
 
 
 
-       
-
-
-region = 'PEPrectangle'
+region = 'Whole'
+print(region)
 
 # Load in mckinnon Time series
 T95name = 'PEP-T95TimeSeries.txt'
@@ -63,6 +61,8 @@ mcKts = mcKtsfull.sel(time=datesmcK)
 hotdaythreshold = mcKts.mean(dim='time').values + mcKts.std().values
 hotts = mcKts.where( mcKts.values > hotdaythreshold) 
 hotdates = hotts.dropna(how='all', dim='time').time
+hotindex = np.where( np.isnan(hotts) == False )[0]
+
 ## plotting same figure as in paper
 #plotpaper = mcKtsfull.sel(time=pd.DatetimeIndex(start='2012-06-23', end='2012-08-21', 
 #                                freq=(datesmcK[1] - datesmcK[0])))
@@ -90,7 +90,7 @@ varsumreg = func_mcK.find_region(varsumgl, region=region)[0]
 # region mckinnon - full time series
 varfullreg = func_mcK.find_region(varfullgl, region=region)[0]
 ## region mckinnon - only (mcKinnon) summer 
-func_mcK.xarray_plot(varsumreg.mean(dim='time')) 
+#func_mcK.xarray_plot(varsumreg.mean(dim='time')) 
 
 #for i in range(3):
 #    func_mcK.xarray_plot(varsumreg.isel(time=i)) 
@@ -109,8 +109,9 @@ varhotdays = varsumreg.sel(time=matchhotdates)
 #    func_mcK.xarray_plot(varfullreg.sel(time=day)) 
 
 #%% Mean over 230 hot days
-#lags = [20, 30]
-lags = [0, 5, 10, 25, 40, 50]
+#lags = [20, 30, 40, 50]
+lags = [30]
+#lags = [0, 5, 10, 25, 40, 50]
 
 array = np.zeros( (len(lags),varsumreg.latitude.size, varsumreg.longitude.size) )
 mcK_mean = xr.DataArray(data=array, coords=[lags, varsumreg.latitude, varsumreg.longitude], 
@@ -129,13 +130,13 @@ for lag in lags:
     
     mcK_mean[idx] = varhotdays 
     
-mcK_mean.attrs['units'] = 'Kelvin (absolute values)'
-file_name = os.path.join(ex['fig_path'], 
-             'mean composite lag{}-{}.png'.format(lags[0], lags[-1]))
-title = 'mean composite - absolute values \nT95 McKinnon data - ERA-I SST'
-kwrgs = dict( {'vmin' : -3*mcK_mean.std().values, 'vmax' : 3*mcK_mean.std().values, 'title' : title, 'clevels' : 'notdefault',
-               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
-func_mcK.finalfigure(mcK_mean, file_name, kwrgs) 
+#mcK_mean.attrs['units'] = 'Kelvin (absolute values)'
+#file_name = os.path.join(ex['fig_path'], 
+#             'mean composite lag{}-{}.png'.format(lags[0], lags[-1]))
+#title = 'mean composite - absolute values \nT95 McKinnon data - ERA-I SST'
+#kwrgs = dict( {'vmin' : -3*mcK_mean.std().values, 'vmax' : 3*mcK_mean.std().values, 'title' : title, 'clevels' : 'notdefault',
+#               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
+#func_mcK.finalfigure(mcK_mean, file_name, kwrgs) 
 
 #%%
 
@@ -156,13 +157,13 @@ for lag in lags:
     
     mcK_mean_w[idx] = varhotdays * weights
     
-mcK_mean_w.attrs['units'] = 'Kelvin (absolute values)'
-file_name = os.path.join(ex['fig_path'], 
-             'weighted mean composite lag{}-{}.png'.format(lags[0], lags[-1]))
-title = 'weighted mean composite - absolute values \nT95 McKinnon data - ERA-I SST'
-kwrgs = dict( {'vmin' : -3*mcK_mean_w.std().values, 'vmax' : 3*mcK_mean_w.std().values, 'title' : title, 'clevels' : 'notdefault',
-               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
-func_mcK.finalfigure(mcK_mean_w, file_name, kwrgs) 
+#mcK_mean_w.attrs['units'] = 'Kelvin (absolute values)'
+#file_name = os.path.join(ex['fig_path'], 
+#             'weighted mean composite lag{}-{}.png'.format(lags[0], lags[-1]))
+#title = 'weighted mean composite - absolute values \nT95 McKinnon data - ERA-I SST'
+#kwrgs = dict( {'vmin' : -3*mcK_mean_w.std().values, 'vmax' : 3*mcK_mean_w.std().values, 'title' : title, 'clevels' : 'notdefault',
+#               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
+#func_mcK.finalfigure(mcK_mean_w, file_name, kwrgs) 
 
 
 
@@ -191,13 +192,13 @@ for lag in lags:
                                               
     w_eofs[idx] = wmean_eofs
     
-w_eofs.attrs['units'] = 'Kelvin (absolute values)'
-file_name = os.path.join(ex['fig_path'], 
-             'Sem weighted anomalous eofs lag{}-{}.png'.format(lags[0], lags[-1]))
-title = 'Sem weighted anomalous eofs \nT95 McKinnon data - ERA-I SST'
-kwrgs = dict( {'vmin' : -3*w_eofs.std().values, 'vmax' : 3*w_eofs.std().values, 'title' : title, 'clevels' : 'notdefault',
-               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
-func_mcK.finalfigure(w_eofs, file_name, kwrgs) 
+#w_eofs.attrs['units'] = 'Kelvin (absolute values)'
+#file_name = os.path.join(ex['fig_path'], 
+#             'Sem weighted anomalous eofs lag{}-{}.png'.format(lags[0], lags[-1]))
+#title = 'Sem weighted anomalous eofs \nT95 McKinnon data - ERA-I SST'
+#kwrgs = dict( {'vmin' : -3*w_eofs.std().values, 'vmax' : 3*w_eofs.std().values, 'title' : title, 'clevels' : 'notdefault',
+#               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
+#func_mcK.finalfigure(w_eofs, file_name, kwrgs) 
 
 #%%
 
@@ -218,8 +219,9 @@ func_mcK.finalfigure(w_eofs, file_name, kwrgs)
 
 #%%
 def cross_correlation_patterns(full_timeserie, pattern):
-    pattern = mcK_mean.sel(lag=lag)
-    full_timeserie = precursor
+    #%%
+#    pattern = mcK_mean.sel(lag=lag)
+#    full_timeserie = precursor
     
     n_time = full_timeserie.time.size
     n_space = pattern.size
@@ -228,35 +230,137 @@ def cross_correlation_patterns(full_timeserie, pattern):
     pattern = np.nan_to_num(np.reshape( pattern.values, (n_space) ))
     crosscorr = np.zeros( (n_time) )
     spatcov   = np.zeros( (n_time) )
+    covself   = np.zeros( (n_time) )
+    corrself  = np.zeros( (n_time) )
     for t in range(n_time):
+        # Corr(X,Y) = cov(X,Y) / ( std(X)*std(Y) )
+        # cov(X,Y) = E( (x_i - mu_x) * (y_i - mu_y) )
         crosscorr[t] = np.correlate(full_ts[t], pattern)
         M = np.stack( (full_ts[t], pattern) )
-        spatcov[t] = np.cov(M)[0,0]
-    crosscorr = crosscorr #/ np.std(crosscorr)
-    plt.plot(crosscorr)
-    plt.figure()
-    plt.plot(spatcov)
-    return spatcov
+        
+        covself[t] = np.mean( (full_ts[t] - np.mean(full_ts[t])) * (pattern - np.mean(pattern)) )
+        corrself[t] = covself[t] / (np.std(full_ts[t]) * np.std(pattern))
+        
+        
+        spatcov[t] = np.cov(M)[0,1] #/ (np.sqrt(np.cov(M)[0,0]) * np.sqrt(np.cov(M)[1,1]))
+#        sqrt( Var(X) ) = sigma_x = std(X)
+#        spatcov[t] = np.cov(M)[0,1] / (np.std(full_ts[t]) * np.std(pattern))
+
+        
+
+#    plt.plot(crosscorr)
+#    plt.figure()
+#    plt.plot(spatcov) #/ np.std(spatcov))
+#    plt.figure()
+#    plt.plot(covself) #/ np.std(spatcov))
+#    plt.figure()
+#    plt.plot(corrself) #/ np.std(spatcov))
+            #%%
+    return corrself
 
 
 #%%
 #lags = [0, 5, 10, 25, 40, 50]
 
 for lag in lags:
+    #%%
     idx = lags.index(lag)
 
     # select antecedant SST pattern to summer days:
     dates_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
-    precursor = varfullreg.sel(time=dates_min_lag)
-    crosscorr_mcK = cross_correlation_patterns(precursor, mcK_mean.sel(lag=lag))
-    crosscorr_mcK_w = cross_correlation_patterns(precursor, mcK_mean_w.sel(lag=lag))
-    crosscorr_we = cross_correlation_patterns(precursor, w_eofs.sel(lag=lag))
-    
-    
-    ROC_mcK = ROC_score(predictions=crosscorr_mcK, observed=mcKts, threshold_event=hotdaythreshold)
-    ROC_mcK_w = ROC_score(predictions=crosscorr_mcK_w, observed=mcKts, threshold_event=hotdaythreshold)
-    ROC_weof = ROC_score(predictions=crosscorr_we, observed=mcKts, threshold_event=hotdaythreshold)
-    print('\n*** ROC score lag {} ***\n\nMck {:.2f} \t Mck_w {:.2f} \t eof_w {:.2f}'.format(lag, ROC_mcK,
+    full_timeserie = varfullreg.sel(time=dates_min_lag)
+    crosscorr_mcK = cross_correlation_patterns(full_timeserie, mcK_mean.sel(lag=lag)/mcK_mean.sel(lag=lag).std())
+    crosscorr_mcK_w = cross_correlation_patterns(full_timeserie, mcK_mean_w.sel(lag=lag)/mcK_mean_w.sel(lag=lag).std())
+    crosscorr_we = cross_correlation_patterns(full_timeserie, w_eofs.sel(lag=lag)/w_eofs.sel(lag=lag).std())
+    if lag == lags[-1]:
+        
+        # shuffling observation:
+        old_index = range(0,len(mcKts),1)
+        import random
+        sample_index = random.sample(old_index, len(old_index))
+        #print(sample_index)
+        new_observed = mcKts[sample_index]  
+
+        # subtract mean
+        crosscorr_mcK = crosscorr_mcK - np.mean(crosscorr_mcK)        
+        min_ = (crosscorr_mcK.min())*1
+        max_ = (crosscorr_mcK.max())*1
+        mean = (abs(min_) + max_)/2.
+
+        
+        TP_rate = np.ones((11))
+        FP_rate =  np.ones((11))
+        TP_rate[10] = 0
+        FP_rate[10] = 0
+        
+        events = np.where(new_observed > hotdaythreshold)[0][:]  
+        not_events = np.where(new_observed <= hotdaythreshold)[0][:]  
+        
+        events = np.where(mcKts > hotdaythreshold)[0][:]  
+        not_events = np.where(mcKts <= hotdaythreshold)[0][:]   
+        
+        plt.figure()
+        for p in np.linspace(10,90, num=9):
+            threshold =  crosscorr_mcK.mean() + np.percentile(crosscorr_mcK, p)
+            pos_prediction_at_lag = np.where( crosscorr_mcK > threshold  )[0]
+            neg_prediction_at_lag = np.where( crosscorr_mcK <= threshold  )[0]
+            
+            true_pos_pred    = [a for a in pos_prediction_at_lag if a in events]
+            false_pos_pred   = [a for a in pos_prediction_at_lag if a not in events]
+            
+            true_neg_pred    = [a for a in neg_prediction_at_lag if a not in events]
+            false_neg_pred    = [a for a in neg_prediction_at_lag if a in events]
+            
+            true_pos_rate = len(true_pos_pred) / ( len(true_pos_pred) + len(false_neg_pred) )
+            false_pos_rate = len(false_pos_pred) / ( len(false_pos_pred) + len(true_neg_pred) )
+            
+            # P = som van echt-positieve en vals-negatieve uitslagen
+            P = len(true_pos_pred) + len(false_neg_pred)
+            # som van true-negatieve en false-positieve uitslagen
+            N = len(true_neg_pred) + len(false_pos_pred)
+            
+            true_pos_rate = len(true_pos_pred) / P
+            false_pos_rate = len(false_pos_pred) / N
+            
+            accuracy = (len(true_pos_pred) + len(true_neg_pred)) / (P + N) 
+            precision = len(true_pos_pred) / ( len(true_pos_pred) + len(false_pos_pred) )
+            
+            plt.ylim(0,1)
+            plt.xlim(0,1)
+            plt.scatter(false_pos_rate, true_pos_rate)
+            plt.plot(np.linspace(0,10,11),np.linspace(0,10,11))
+            
+            TP_rate[int(p/10)] = true_pos_rate
+            FP_rate[int(p/10)] = false_pos_rate
+            print('accuracy : {:.2f} \t precision {:.2f}'.format(accuracy, precision))
+        ROC_score_sem = np.abs(np.trapz(TP_rate, x=FP_rate ))
+        print(ROC_score_sem)
+        plt.figure( figsize=(10,6) )
+        plt.ylim(-mean, mean)
+        if np.sign(threshold) == np.sign(-1):
+            axthres = (mean - abs(threshold)) / ( 2*abs(mean) )
+        else:
+            axthres = (mean + abs(threshold)) / ( 2*abs(mean) )  
+        for FP in false_pos_pred:
+            plt.axvline(FP, ymin=axthres, alpha=0.02, color='blue')
+        for FN in false_neg_pred:
+            plt.axvline(FN, alpha=0.05, ymin=axthres, color='red')
+        for TP in true_pos_pred:
+            plt.axvline(TP, ymin=axthres, alpha=0.4, color='green')
+        plt.plot(crosscorr_mcK, label='mcK mean, ROC score {:.2f}'.format(ROC_score_sem), 
+                 color='blue', alpha=0.4)
+#        plt.plot(crosscorr_mcK_w, label='mcK weighted mean')
+#        plt.plot(crosscorr_we, label='weigthed eof')
+#        plt.plot(crosscorr_mcK / np.std(crosscorr_mcK), label='mcK mean')
+#        plt.plot(crosscorr_mcK_w / np.std(crosscorr_mcK_w), label='mcK weighted mean')
+#        plt.plot(crosscorr_we / np.std(crosscorr_we), label='weigthed eof')
+        plt.legend()
+        
+        #%%
+    ROC_mcK, ROC_boot_mcK = ROC_score(predictions=crosscorr_mcK, observed=mcKts, threshold_event=hotdaythreshold, lag=lag)
+    ROC_mcK_w, ROC_boot_mcK_w = ROC_score(predictions=crosscorr_mcK_w, observed=mcKts, threshold_event=hotdaythreshold, lag=lag)
+    ROC_weof, ROC_boot_weof = ROC_score(predictions=crosscorr_we, observed=mcKts, threshold_event=hotdaythreshold, lag=lag)
+    print('\n*** ROC score for {} lag {} ***\n\nMck {:.2f} \t Mck_w {:.2f} \t eof_w {:.2f}'.format(region, lag, ROC_mcK,
                                           ROC_mcK_w, ROC_weof))
     
 
