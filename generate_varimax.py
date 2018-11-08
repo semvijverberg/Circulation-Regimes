@@ -549,7 +549,7 @@ if __name__ == '__main__':
 
     run_script = True
     data_name = 'test'
-    save_folder = '/home/rung_ja/work/supervised/Sabrina/'
+    save_folder = '/Users/semvijverberg/surfdrive/Data_ERAint/'
     ## Save filename is generated from parameters, see below!
 
 

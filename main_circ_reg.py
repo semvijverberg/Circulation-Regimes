@@ -68,11 +68,10 @@ linkage = ['complete', 'average']
 ex['distmetric'] = 'jaccard'
 ex['clusmethod'] = methods[1] ; ex['linkage'] = linkage ; region='U.S.'
 
-
+#%%
 n_clusters = [2, 3, 4, 5, 6, 7, 8, 9]
 for n in n_clusters:
     output = functions.clustering_spatial(McKts, ex, n, region, RV)
-
 #%% Saving output in dictionary
 # settings for tfreq = 14
 ex['linkage'] = linkage[1]
@@ -87,9 +86,6 @@ mask2 = np.array(np.nan_to_num(output.where(output == selclus)), dtype=bool)
 mask1[mask2] = True
 mask = mask1
 tmaxRVperiod.coords['mask'] = (('latitude','longitude'), mask)
-
-# make tmax RV:
-RV_array, RVfullts, RVts, new_RV_period = add_mask_to_ncdf(RV.filename_pp, mask)
 
 def add_mask_to_ncdf(file_name, mask):
     # =============================================================================
@@ -107,7 +103,7 @@ def add_mask_to_ncdf(file_name, mask):
     RV_array = np.squeeze(ncdf.to_array(file_path)).rename(({file_path: var}))
     RV_array.name = var
     RV_array['time'] = dates
-    RV_array.coords['mask'] = (('latitude','longitude'), US_mask)
+    RV_array.coords['mask'] = (('latitude','longitude'), mask)
     RVfullts = RV_array.where(RV_array.mask ==True).mean(dim=['latitude','longitude']).squeeze()
     RVoneyr = RVfullts.where(dates.year == ex['startyear']).dropna(dim='time', how='all')
     # matching RV period
@@ -128,8 +124,11 @@ def add_mask_to_ncdf(file_name, mask):
     RVts = RVfullts.isel(time=new_RV_period)
     return RV_array, RVfullts, RVts, new_RV_period
 
-file_name = 'z_1979-2017_2mar_31aug_dt-1days_2.5deg.nc'
-RV_array, RVfullts, RVts, new_RV_period = add_mask_to_ncdf(file_name, mask)
+# make tmax RV:
+RV_array, RVfullts, RVts, new_RV_period = add_mask_to_ncdf(RV.filename_pp, mask)
+
+#file_name = 'z_1979-2017_2mar_31aug_dt-1days_2.5deg.nc'
+#RV_array, RVfullts, RVts, new_RV_period = add_mask_to_ncdf(file_name, mask)
 
 #%%
 var = RV_array.name ; tfreq = file_name[file_name.index('days')-1] 

@@ -115,6 +115,84 @@ def clustering_temporal(data, ex, n_clusters, tfreq, region):
     output.attrs['units'] = 'clusters, n = {}'.format(n_clusters)
     return output, group_clusters
 
+
+def clustering_spatial(data, ex, n_clusters, region):
+    import numpy as np
+    import xarray as xr
+    import os
+    import sklearn.cluster as cluster
+    input = data.squeeze()
+    def clustering_plotting(cluster_method, input, n_clusters):
+        region_values = input.where(input.mask == True)
+        output = region_values[0].copy()
+        def station_time_shape(array, timesteps):
+            X_vec = np.reshape( array.values, (timesteps, array.longitude.size*array.latitude.size) )
+            X_station_time = np.swapaxes(X_vec, 1,0 )
+            return X_station_time
+        # reshape array to [station, time] (to create dendogram timeseries)
+        
+        mask_station_time = station_time_shape(region_values.mask, 1)
+        mask_station_time = np.array(np.tile(mask_station_time, (1,data.time.size)), dtype=int)
+        output_lonlat = np.array(mask_station_time[:,0].copy(), dtype=int)
+        indic_station_time = station_time_shape(region_values, region_values.time.size)
+        # only keep the land gridcells
+        indic_st_land = indic_station_time[mask_station_time == 1]
+        n_land_stations = output_lonlat[output_lonlat==1].size
+        indic_st_land = indic_st_land.reshape( (n_land_stations, data.time.size)  )
+
+#        X = StandardScaler().fit_transform(X_station_time)
+
+        
+        out_clus = cluster_method.fit(indic_st_land)
+        labels = out_clus.labels_
+        # plug in the land gridcell with the labels
+        land_gcs = np.argwhere(output_lonlat == 1)[:,0]
+        output_lonlat[land_gcs] = labels
+        output_lonlat[land_gcs] = output_lonlat[land_gcs] + 1
+        output_lonlat = np.reshape(np.array(output_lonlat), region_values[0].shape)
+        output.values = output_lonlat
+        output.name = ex['name'] + '_' + str(n_clusters) + '_' + name_method
+        
+        folder = os.path.join(ex['fig_path'],'Clustering_spatial/', 
+                              '{}deg_tfreq{}'.format(ex['grid_res'],ex['tfreq']))
+        if os.path.isdir(folder) != True : os.makedirs(folder)
+#        savepath = os.path.join(folder, output.name)
+        func_mcK.xarray_plot(output, path=folder, saving=True)
+        return output   
+    
+    algorithm = cluster.__dict__[ex['clusmethod']]
+    if ex['clusmethod'] == 'KMeans':
+        cluster_method = algorithm(n_clusters)
+        name_method = ex['clusmethod']
+        output = clustering_plotting(cluster_method, input, n_clusters)
+    if ex['clusmethod'] == 'AgglomerativeClustering':
+        # linkage_method -- 'average', 'centroid', 'complete', 'median', 'single',
+        #                   'ward', or 'weighted'. See 'doc linkage' for more info.
+        #                   'average' is standard.
+        if np.size(ex['linkage']) == 1:
+            link = ex['linkage']
+            name_method = 'AgglomerativeClustering' + '_' + link
+            print(name_method)
+            cluster_method = algorithm(linkage=link, n_clusters=n_clusters, 
+                                           affinity=ex['distmetric'])
+            output = clustering_plotting(cluster_method, input, n_clusters)
+        else:
+            for link in ex['linkage']:
+                name_method = 'AgglomerativeClustering' + '_' + link
+                print(name_method)
+                cluster_method = algorithm(linkage=link, n_clusters=n_clusters, 
+                                           affinity=ex['distmetric'])
+                output = clustering_plotting(cluster_method, input, n_clusters)
+                
+#    folder = os.path.join(cls.base_path, 'Clustering_spatial', method)
+#    quicksave_ncdf(input, cls, path=folder, name=input.name)
+    output.attrs['units'] = 'clusters, n = {}'.format(n_clusters) 
+    return output
+
+
+
+
+
 from matplotlib.colors import Normalize
 class MidpointNormalize(Normalize):
     def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):

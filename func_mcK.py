@@ -13,6 +13,7 @@ from netCDF4 import num2date
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import matplotlib.colors as colors
+import generate_varimax
 from eofs.xarray import Eof
 from shapely.geometry.polygon import LinearRing
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
@@ -109,7 +110,6 @@ def xarray_plot(data, path='default', name = 'default', saving=False):
     import cartopy.crs as ccrs
     import numpy as np
     plt.figure()
-    data = np.squeeze(data)
     if len(data.longitude[np.where(data.longitude > 180)[0]]) != 0:
         if data.longitude.where(data.longitude==0).dropna(dim='longitude', how='all') == 0.:
             print('hoi')   
@@ -180,7 +180,7 @@ def find_region(data, region='Mckinnonplot'):
     elif region ==  'Pacific':
         west_lon = -215; east_lon = -120; south_lat = 19; north_lat = 60
     elif region ==  'Whole':
-        west_lon = -360; east_lon = -10; south_lat = -60; north_lat = 60
+        west_lon = -360; east_lon = -1; south_lat = -80; north_lat = 80
     elif region ==  'Southern':
         west_lon = -20; east_lon = -2; south_lat = -80; north_lat = -60
 
@@ -252,12 +252,16 @@ def finalfigure(xrdata, file_name, kwrgs):
         lats_sq = [50, 19, 19, 50]
         ring = LinearRing(list(zip(lons_sq , lats_sq )))
         ax.add_geometries([ring], ccrs.PlateCarree(), facecolor='none', edgecolor='green')
-        gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
-        gl.xlabels_top = False;
-#        gl.xformatter = LONGITUDE_FORMATTER
-        gl.ylabels_right = False;
-        gl.xlabels_bottom = False
-#        gl.yformatter = LATITUDE_FORMATTER
+        if kwrgs['map_proj'].proj4_params['proj'] in ['merc', 'Plat']:
+            print(True)
+            gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
+            gl.xlabels_top = False;
+    #        gl.xformatter = LONGITUDE_FORMATTER
+            gl.ylabels_right = False;
+            gl.xlabels_bottom = False
+    #        gl.yformatter = LATITUDE_FORMATTER
+        else:
+            pass
         
     g.fig.text(0.5, 0.95, kwrgs['title'], fontsize=15, horizontalalignment='center')
     cbar_ax = g.fig.add_axes([0.25, (figheight/25)/n_plots, 
@@ -268,29 +272,31 @@ def finalfigure(xrdata, file_name, kwrgs):
     #%%
     return
         
-def EOF(data, neofs=1, center=False, weights=None):
+def EOF(data, scaling, neofs=10, center=False, weights=None):
     import numpy as np
-    from eofs.xarray import Eof
+#    from eofs.xarray import Eof
     # Create an EOF solver to do the EOF analysis. Square-root of cosine of
     # latitude weights are applied before the computation of EOFs.
     coslat = np.cos(np.deg2rad(data.coords['latitude'].values)).clip(0., 1.)
     wgts = np.sqrt(coslat)[..., np.newaxis]
     solver = Eof(np.squeeze(data), center=False, weights=wgts)
-    eof_output = solver.eofsAsCovariance(neofs=neofs)
-    eof_output.attrs['units'] = 'mode'
-    return eof_output, solver
+    loadings = solver.eofs(neofs=neofs, eofscaling=scaling)
+    loadings.attrs['units'] = 'mode'
+    
+    
+    return loadings
 
-def project_eof_field(xarray, solver, scaling, n_eofs_used):
-    eofs = solver.eofs(neofs=n_eofs_used, eofscaling=scaling).values
-    n_eofs  = eofs[:,0,0].size
-    n_space = eofs[0].size
+def project_eof_field(xarray, loadings, n_eofs_used):
+    
+    n_eofs  = loadings[:,0,0].size
+    n_space = loadings[0].size
     n_time  = xarray.time.size
     
     matrix = np.reshape(xarray.values, (n_time, xarray[0].size))
     matrix = np.nan_to_num(matrix)
 
     # convert eof output to matrix
-    Ceof = np.reshape( eofs, (n_eofs, n_space) ) 
+    Ceof = np.reshape( loadings.values, (n_eofs, n_space) ) 
     C = np.nan_to_num(Ceof)
 
 #    # Calculate std over entire eof time series
@@ -303,7 +309,7 @@ def project_eof_field(xarray, solver, scaling, n_eofs_used):
     PCi_mean = np.zeros( (n_eofs_used) )
     for i in range(n_eofs_used):
     
-        PCi[:,i] = np.dot( matrix, C[i,:])
+        PCi[:,i] = np.dot( matrix, C[i,:] )
         
         PCstd[i] = np.std(PCi[:,i])
         PCi_mean[i] = np.mean(PCi[:,i])
@@ -312,14 +318,9 @@ def project_eof_field(xarray, solver, scaling, n_eofs_used):
 
 
 
-def extract_pattern(Composite, totaltimeserie, scaling, n_eofs_used, weights):
+def extract_pattern(Composite, totaltimeserie, n_eofs_used, loadings, weights):
     # Get oefs from Composite
     
-    # Create an EOF solver to do the EOF analysis. Square-root of cosine of
-    # latitude weights are applied before the computation of EOFs.
-    coslat = np.cos(np.deg2rad(Composite.coords['latitude'].values)).clip(0., 1.)
-    wgts = np.sqrt(coslat)[..., np.newaxis]
-    solver = Eof(np.squeeze(Composite), center=False, weights=wgts)
     
     Composite = Composite * weights
     totaltimeserie = totaltimeserie * weights
@@ -327,11 +328,11 @@ def extract_pattern(Composite, totaltimeserie, scaling, n_eofs_used, weights):
     
     # Project hot day fields upon EOFS 
     PCi_comp, PCstd_comp, PCi_mean_comp = project_eof_field(
-                                    Composite, solver, scaling, n_eofs_used)
+                                    Composite, loadings, n_eofs_used)
 
     # Project total timeseries on main EOFs
     PCi_all, PCstd_all, PCi_mean_nor = project_eof_field(
-                                    totaltimeserie, solver, scaling, n_eofs_used)
+                                    totaltimeserie, loadings, n_eofs_used)
 
     # Determine deviating PCs of compososite with respect to totaltimeserie 
     # using absolute value of normalized PCs
@@ -369,103 +370,96 @@ def extract_pattern(Composite, totaltimeserie, scaling, n_eofs_used, weights):
 #    print('std value PC time series: {}'.format(PCstd[0]))
         
     
-    def Relevant_PCs(PCi_mean_comp, solver, scaling, n_eofs_used):
+    def Relevant_PCs(PCi_mean_comp, n_eofs_used):
         
         absolute_values = xr.DataArray(data=PCi_mean_comp, coords=[range(n_eofs_used)], 
-                              dims=['eofs'], name='xarray')
+                              dims=['loads'], name='xarray')
         anomalous = absolute_values.where(abs(absolute_values.values) > 
-                          (absolute_values.mean(dim='eofs') + absolute_values.std()).values)
-        PC_imp_abs = anomalous.dropna(how='all', dim='eofs')
+                          (absolute_values.mean(dim='loads') + absolute_values.std()).values)
+        PC_imp_abs = anomalous.dropna(how='all', dim='loads')
     
         absolute_values = xr.DataArray(data=PCi_mean_comp, coords=[range(n_eofs_used)], 
-                                  dims=['eofs'], name='xarray')
+                                  dims=['loads'], name='xarray')
         return PC_imp_abs, absolute_values
     
-#    PC_imp_var, absolute_values = Relevant_PCs(ratio_std, solver, scaling, n_eofs_used)
-#    PC_imp_rel, absolute_values = Relevant_PCs(ratio_mean, solver, scaling, n_eofs_used)
-    PC_imp_abs, absolute_values = Relevant_PCs(PCi_mean_comp, solver, scaling, n_eofs_used)
+#    PC_imp_var, absolute_values = Relevant_PCs(ratio_std, n_eofs_used)
+#    PC_imp_rel, absolute_values = Relevant_PCs(ratio_mean, n_eofs_used)
+    PC_imp_abs, absolute_values = Relevant_PCs(PCi_mean_comp, n_eofs_used)
     
-#    plt.figure()
-#    plt.title('Pcs deviation (in std) from total variability')
-#    for n_eof in range(n_eofs_used):
-#        plt.axhline(0, color='black')
-#        plt.axhline(absolute_values.mean(dim='eofs') + absolute_values.std().values, color='red')
-#        plt.axhline(-1*(absolute_values.mean(dim='eofs') + absolute_values.std().values), color='blue')  
-#        plt.scatter(n_eof, absolute_values[n_eof])
+    plt.figure()
+    plt.title('Pcs deviation (in std) from total variability')
+    for n_eof in range(n_eofs_used):
+        plt.axhline(0, color='black')
+        plt.axhline(absolute_values.mean(dim='loads') + absolute_values.std().values, color='red')
+        plt.axhline(-1*(absolute_values.mean(dim='loads') + absolute_values.std().values), color='blue')  
+        plt.scatter(n_eof, absolute_values[n_eof])
     
-    important_modes = list(PC_imp_abs.eofs.values)
+    important_modes = list(PC_imp_abs.loads.values)
     array = np.zeros( (len(PC_imp_abs),Composite.latitude.size, Composite.longitude.size) )
     important_eofs = xr.DataArray(data=array, coords=[important_modes, Composite.latitude, Composite.longitude], 
-                          dims=['eof','latitude','longitude'], name='eofs')
-    eofs = solver.eofs(neofs=n_eofs_used, eofscaling=scaling)
-
+                          dims=['loads','latitude','longitude'], name='loadings')
+    
+    
     for eof in important_modes:
         idx = important_modes.index(eof)
-        single_eof = eofs.sel(mode=eof) * np.sign(absolute_values.sel(eofs=eof))
+        single_eof = loadings.sel(loads=eof) * np.sign(absolute_values.sel(loads=eof))
         important_eofs[idx] = single_eof
         
     # calculate weighted mean of relevant PCs (weighted on deviation from total
     # variability)
     weights = abs(PC_imp_abs) / np.mean(abs(PC_imp_abs))
     important_eofs_w = xr.DataArray(data=array, coords=[important_modes, Composite.latitude, Composite.longitude], 
-                          dims=['eof','latitude','longitude'], name='eofs')
+                          dims=['loads','latitude','longitude'], name='loadings')
     for eof in important_modes:
         idx = important_modes.index(eof)
-        single_eof = eofs.sel(mode=eof) * np.sign(absolute_values.sel(eofs=eof))
-        important_eofs_w[idx] = single_eof * weights.sel(eofs=eof)
+        single_eof = loadings.sel(loads=eof) * np.sign(absolute_values.sel(loads=eof))
+        important_eofs_w[idx] = single_eof * weights.sel(loads=eof)
     
-    wmean_eofs = important_eofs_w.mean(dim='eof', keep_attrs = True) 
+    wmean_eofs = important_eofs_w.mean(dim='loads', keep_attrs = True) 
     
     
     return important_eofs, wmean_eofs, PC_imp_abs
     
+
+def varimax_PCA_sem(xarray, max_comps):
+    geo_object = xarray
+    lats = geo_object.latitude.values
+    lons = geo_object.longitude.values
+    geo_data = xarray.values
+    flattened = np.reshape(np.array(geo_data), 
+                           (geo_data.shape[0], np.prod(geo_data.shape[1:])))
+    nonmask_flat = np.where(np.array(flattened)[0] != 0.)[0]
+    nonmasked = flattened[:,nonmask_flat]
     
-#    
-#    for row in xrdata.names_row.values:
-#        rowidx = list(xrdata.names_row.values).index(row)
-#        plotrow = xrdata.sel(names_row=row)
-#        for col in xrdata.names_col.values:
-#            colidx = list(xrdata.names_col.values).index(col)
-#        
-#            plotdata = plotrow.sel(names_col=names_col[colidx])
-#            if np.sum(plotdata) == 0.:
-#                g.axes[rowidx,colidx].text(0.5, 0.5, 'No regions significant',
-#                              horizontalalignment='center', fontsize='x-large',
-#                              verticalalignment='center', transform=g.axes[rowidx,colidx].transAxes)
-#            elif np.sum(plotdata) > 0.:
-#                im = plotdata.plot.contourf(ax=g.axes[rowidx,colidx], transform=ccrs.PlateCarree(),
-#                                                cmap=cmap, levels=clevels,
-#                                                subplot_kws={'projection':map_proj},
-#                                                add_colorbar=False)
-#                plotdata = plotrow.sel(names_col=names_col[1])
-#                if np.sum(plotdata) != 0.:
-#                    contourmask = np.array(np.nan_to_num(plotdata.where(plotdata > 0.)), dtype=int)
-#                    plotdata.data = contourmask
-#                    plotdata.plot.contour(ax=g.axes[rowidx,colidx], transform=ccrs.PlateCarree(),
-#                                                        colors=['black'], levels=levels,
-#                                                        subplot_kws={'projection':map_proj},
-#                                                        add_colorbar=False)
-#        
-#        g.axes[rowidx,0].text(-figwidth/100, 0.5, row,
-#                  horizontalalignment='center', fontsize='x-large',
-#                  verticalalignment='center', transform=g.axes[rowidx,0].transAxes)
-#    for ax in g.axes.flat:
-#        ax.coastlines(color='grey', alpha=0.3)
-#        ax.set_title('')
-#    g.axes[0,1].set_title(names_col[1] + '\nat alpha={} with '
-#                  'pc_alpha(s)={}'.format(ex['alpha_level_tig']  , ex['pcA_sets'][ex['pcA_set']]), fontsize='x-large')
-#    g.axes[0,0].set_title(names_col[0] + '\nat Corr p-value={}'.format(ex['alpha']),
-#                  fontsize='x-large')
-##        g.axes[rowidx,0].text(0.5, figwidth/100, 'Black contours are not significant after MCI',
-##                      horizontalalignment='center', fontsize='x-large',
-##                      verticalalignment='center', transform=g.axes[rowidx,0].transAxes)
-#    if ex['plotin1fig'] == False:
-#        cbar_ax = g.fig.add_axes([0.25, (figheight/25)/len(g.row_names), 
-#                                  0.5, (figheight/150)/len(g.row_names)])
-#        plt.colorbar(im, cax=cbar_ax, orientation='horizontal')
-##        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-#    plt.subplots_adjust(wspace=0.1, hspace=-0.3)
-#    g.fig.savefig(os.path.join(ex['fig_path'], file_name + ex['file_type2']),dpi=250)
-#    if ex['showplot'] == False:
-#        plt.close()
-#    return
+    
+    # convert to nonmasked array
+    data = nonmasked
+    truncate_by = 'max_comps'
+    max_comps=60
+    fraction_explained_variance=0.9
+    verbosity=0
+    
+    var_standard = generate_varimax.get_varimax_loadings_standard(data=data,
+                        truncate_by = truncate_by, 
+                        max_comps=max_comps,
+                        fraction_explained_variance=fraction_explained_variance,
+                        verbosity=verbosity,
+                        )
+    # Plug in nonmasked values into the original lonlat with mask
+    npcopy = np.array(flattened[:max_comps])
+    npcopy[:,nonmask_flat] = np.swapaxes(var_standard['weights'],1,0)
+    nplonlat = np.reshape(npcopy, (npcopy.shape[0], lats.size, lons.size)) 
+                                                   
+    
+    # convert to xarray
+    xrarray_patterns = xr.DataArray(nplonlat, coords=[np.arange(0,max_comps), lats, 
+                                 lons], 
+                                dims=['loads', 'latitude','longitude'], 
+                                name='rot_pca_standard')
+#    PCs = xr.DataArray(np.swapaxes(var_standard['comps_ts'],1,0), 
+#                       coords = [np.arange(0,max_comps)], 
+#                       dims = ['modes'], 
+#                       name = 'PCs')
+    
+    return xrarray_patterns
+
