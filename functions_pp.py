@@ -9,9 +9,33 @@ import os
 import numpy as np
 import pandas as pd
 
-class Variable:
-    from datetime import datetime, timedelta
-    import pandas as pd
+
+def Variable(self, ex):
+    self.startyear = ex['startyear']
+    self.endyear = ex['endyear']
+    self.startmonth = 1
+    self.endmonth = 12
+    self.grid = ex['grid_res']
+    self.dataset = ex['dataset']
+    self.base_path = ex['base_path']
+    self.path_raw = ex['path_raw']
+    self.path_pp = ex['path_pp']
+    return self
+#    def __init__(self, ex):
+#    # self is the instance of the employee class
+#    # below are listed the instance variables
+#        self.startyear = ex['startyear']
+#        self.endyear = ex['endyear']
+#        self.startmonth = 1
+#        self.endmonth = 12
+#        self.grid = ex['grid_res']
+#        self.dataset = ex['dataset']
+#        self.base_path = ex['base_path']
+#        self.path_raw = ex['path_raw']
+#        self.path_pp = ex['path_pp']
+    
+
+class Var_ECMWF_download():
     """Levtypes: \n surface  :   sfc \n model level  :   ml (1 to 137) \n pressure levels (1000, 850.. etc)
     :   pl \n isentropic level    :   pt
     \n
@@ -21,76 +45,79 @@ class Variable:
     Daily Streams:
     Operational (for surface)   :   oper
     """
-    ecmwf_website = 'http://apps.ecmwf.int/codes/grib/param-db'
-    def __init__(self, ex, idx, ECMWFdown):
-        import calendar
-        import os
-        # self is the instance of the employee class
-        # below are listed the instance variables
-        self.name = ex['vars'][0][idx]
-        self.startyear = ex['startyear']
-        self.endyear = ex['endyear']
-        self.startmonth = 1
-        self.endmonth = 12
-        self.grid = ex['grid_res']
-        self.dataset = ex['dataset']
-        self.base_path = ex['base_path']
-        self.path_raw = ex['path_raw']
-        self.path_pp = ex['path_pp']
-        if ECMWFdown == True:
-            self.var_cf_code = ex['vars'][1][idx]
-            self.levtype = ex['vars'][2][idx]
-            self.lvllist = ex['vars'][3][idx]
-            self.stream = 'oper'
-#            if stream == 'oper':
-            time_ana = "00:00:00/06:00:00/12:00:00/18:00:00"
-#            else:
-#                time_ana = "00:00:00"
-            self.time_ana = time_ana 
-            
-            days_in_month = dict( {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30, 10:31, 11:30, 12:31} )
-            days_in_month_leap = dict( {1:31, 2:29, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30, 10:31, 11:30, 12:31} )
-            start = Variable.datetime(self.startyear, self.startmonth, 1)
-            
-            # creating list of dates that we want to download given the startyear/startmonth to endyear/endmonth
-            datelist_str = [start.strftime('%Y-%m-%d')]
-            if self.stream == 'oper':
-                end = Variable.datetime(self.endyear, self.endmonth, days_in_month[self.endmonth])
-                while start < end:          
-                    start += Variable.timedelta(days=1)
-                    datelist_str.append(start.strftime('%Y-%m-%d'))
-                    if start.month == end.month and start.day == days_in_month[self.endmonth] and start.year != self.endyear:
-                        start = Variable.datetime(start.year+1, self.startmonth, 1)
-                        datelist_str.append(start.strftime('%Y-%m-%d'))  
-            elif self.stream == 'moda' or 'mnth':
-                end = Variable.datetime(self.endyear, self.endmonth, 1)
-                while start < end:          
-                    days = days_in_month[start.month] if calendar.isleap(start.year)==False else days_in_month_leap[start.month]
-                    start += Variable.timedelta(days=days)
-                    datelist_str.append(start.strftime('%Y-%m-%d'))
-                    if start.month == end.month and start.year != self.endyear:
-                        start = Variable.datetime(start.year+1, self.startmonth, 1)
-                        datelist_str.append(start.strftime('%Y-%m-%d'))             
-            self.datelist_str = datelist_str
-
-            # Convert to datetime datelist
-#            self.dates_dt = [Variable.datetime.strptime(date, '%Y-%m-%d').date() for date in datelist_str]
-            self.dates = Variable.pd.to_datetime(datelist_str)
     
-            self.filename = '{}_{}-{}_{}_{}_{}_{}deg.nc'.format(self.name, self.startyear, self.endyear, self.startmonth, self.endmonth, 'daily', self.grid).replace(' ', '_')
-        elif ECMWFdown == False:
-            if len(ex['own_actor_nc_names'][0]) != 0:
-                self.name = ex['own_actor_nc_names'][idx][0]
-                self.filename = ex['own_actor_nc_names'][idx][1]
-                ex['vars'][0].append(self.name)
-                print('t')
-            if len(ex['RVnc_name']) != 0:
-                self.name = ex['RVnc_name'][0]
-                self.filename = ex['RVnc_name'][1]
-#                ex['vars'][0].insert(0, self.name)
+    def __init__(self, ex, idx):
+        from datetime import datetime, timedelta
+        import pandas as pd
+        import calendar
+#        import os
+        vclass = Variable(self, ex)
+        # shared information of ECMWF downloaded variables
+        # variables specific information
+        vclass.name = ex['vars'][0][idx]
+        vclass.var_cf_code = ex['vars'][1][idx]
+        vclass.levtype = ex['vars'][2][idx]
+        vclass.lvllist = ex['vars'][3][idx]
+        vclass.stream = 'oper'
+    #            if stream == 'oper':
+        time_ana = "00:00:00/06:00:00/12:00:00/18:00:00"
+    #            else:
+    #                time_ana = "00:00:00"
+        vclass.time_ana = time_ana 
+        
+        days_in_month = dict( {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 
+                               9:30, 10:31, 11:30, 12:31} )
+        days_in_month_leap = dict( {1:31, 2:29, 3:31, 4:30, 5:31, 6:30, 7:31, 
+                                    8:31, 9:30, 10:31, 11:30, 12:31} )
+        start = datetime(vclass.startyear, vclass.startmonth, 1)
+        
+        # creating list of dates that we want to download given the startyear/
+        # startmonth to endyear/endmonth
+        datelist_str = [start.strftime('%Y-%m-%d')]
+        if vclass.stream == 'oper':
+            end = datetime(vclass.endyear, vclass.endmonth, 
+                                    days_in_month[vclass.endmonth])
+            while start < end:          
+                start += timedelta(days=1)
+                datelist_str.append(start.strftime('%Y-%m-%d'))
+                if start.month == end.month and start.day == days_in_month[vclass.endmonth] and start.year != vclass.endyear:
+                    start = datetime(start.year+1, vclass.startmonth, 1)
+                    datelist_str.append(start.strftime('%Y-%m-%d'))  
+        elif vclass.stream == 'moda' or 'mnth':
+            end = datetime(vclass.endyear, vclass.endmonth, 1)
+            while start < end:          
+                days = days_in_month[start.month] if calendar.isleap(start.year)==False else days_in_month_leap[start.month]
+                start += timedelta(days=days)
+                datelist_str.append(start.strftime('%Y-%m-%d'))
+                if start.month == end.month and start.year != vclass.endyear:
+                    start = datetime(start.year+1, vclass.startmonth, 1)
+                    datelist_str.append(start.strftime('%Y-%m-%d'))             
+        vclass.datelist_str = datelist_str  
+        # Convert to datetime datelist
+        vclass.dates = pd.to_datetime(datelist_str)   
+        vclass.filename = '{}_{}-{}_{}_{}_{}_{}deg.nc'.format(vclass.name, 
+                           vclass.startyear, vclass.endyear, vclass.startmonth, 
+                           vclass.endmonth, 'daily', vclass.grid).replace(' ', '_')
+        
+        print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(vclass.name, 
+               vclass.startyear, vclass.endyear, vclass.grid)))
 
-        print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(self.name, self.startyear, self.endyear, self.grid)))
-#        print("Variable function selected {} \n".format(self.filename))
+class Var_import_RV_netcdf:
+    def __init__(self, ex):
+        vclass = Variable(self, ex)
+        
+        vclass.name = ex['RVnc_name'][0]
+        vclass.filename = ex['RVnc_name'][1]
+        print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(vclass.name, 
+               vclass.startyear, vclass.endyear, vclass.grid))) 
+        
+class Var_import_precursor_netcdf:
+    def __init__(self, ex, idx):
+        vclass = Variable(self, ex)
+        
+        vclass.name = ex['precursor_ncdf'][idx][0]
+        vclass.filename = ex['precursor_ncdf'][idx][1]
+        ex['vars'][0].append(vclass.name)
 
 def retrieve_ERA_i_field(cls):
 #    from functions_pp import kornshell_with_input
@@ -194,7 +221,7 @@ def datestr_for_preproc(cls, ex):
     # line below: The +1 = include day 1 in counting
     start_day = (end_day - (temporal_freq * np.round(fit_steps_yr, decimals=0))) + 1 
     # update ex['sstartdate']:
-    ex['sstartdate'] = start_day
+    ex['adjstartdate'] = start_day
     ex['senddate'] = end_day
     # create datestring that will be used for the cdo selectdate, 
     def make_datestr(dates, start_yr):
@@ -337,27 +364,20 @@ def preprocessing_ncdf(outfile, datesstr, cls, ex):
 # =============================================================================
 #   # other unused cdo commands
 # =============================================================================
-#    del_days = 'cdo delete,month=12,11 -delete,month=10,day=31,30,29,28 -delete,month=2,day=29 {} {}'.format(infile, tmpfile)
-#    selmon = 'cdo -selmon,{}/{} {} {}'.format(ex['sstartmonth'],ex['sendmonth'], outfile, outfile)#.replace('[','').replace(']','').replace(', ',',')
-#    echo_selmon = 'echo '+selmon
-#    overwrite_taxis =   'cdo settaxis,{},1month {} {}'.format(starttime.strftime('%Y-%m-%d,%H:%M'), tmpfile, tmpfile)
+#    overwrite_taxis = 'cdo settaxis,{},1month {} {}'.format(starttime.strftime('%Y-%m-%d,%H:%M'), tmpfile, tmpfile)
 #    del_leapdays = 'cdo delete,month=2,day=29 {} {}'.format(infile, tmpfile)
-# =============================================================================
-#  # detrend
-# =============================================================================
-
-    # will detrend only annual mean values over years, no seasonality accounted for
-    # will subtract a*t + b, leaving only anomaly around the linear trend + intercept
-    detrend = 'cdo -b 32 detrend {} {}'.format(tmpfile+'rmtime.nc', #tmpfile+'hom.nc',
-                                             tmpfile+'detrend.nc')
-#    trend = 'cdo -b 32 trend {} {} {}'.format(tmpfile+'homrm.nc', tmpfile+'intercept.nc',
-#                                             tmpfile+'trend.nc')
-# =============================================================================
-#  # calculate anomalies w.r.t. interannual daily mean
-# =============================================================================
-#    clim = 'cdo ydaymean {} {}'.format(outfile, tmpfile)
-    anom = 'cdo -O -b 32 ydaysub {} -ydayavg {} {}'.format(tmpfile+'detrend.nc', 
-                              tmpfile+'detrend.nc', outfile)
+#    # Detrend
+#    # will detrend only annual mean values over years, no seasonality accounted for
+#    # will subtract a*t + b, leaving only anomaly around the linear trend + intercept
+#    detrend = 'cdo -b 32 detrend {} {}'.format(tmpfile+'rmtime.nc', #tmpfile+'hom.nc',
+#                                             tmpfile+'detrend.nc')
+#    # trend = 'cdo -b 32 trend {} {} {}'.format(tmpfile+'homrm.nc', tmpfile+'intercept.nc',
+#    #                                          tmpfile+'trend.nc')
+#    # calculate anomalies w.r.t. interannual daily mean
+#
+#    # clim = 'cdo ydaymean {} {}'.format(outfile, tmpfile)
+#    anom = 'cdo -O -b 32 ydaysub {} -ydayavg {} {}'.format(tmpfile+'detrend.nc', 
+#                              tmpfile+'detrend.nc', outfile)
 # =============================================================================
 #   # commands to add some info 
 # =============================================================================
@@ -366,11 +386,13 @@ def preprocessing_ncdf(outfile, datesstr, cls, ex):
     var = [var for var in strvars if var not in ' time time_bnds longitude latitude '][0] 
     var = var.replace(' ', '')
 
-    add_path_raw = 'ncatted -a path_raw,global,c,c,{} {}'.format(str(ncdf.filepath()), outfile) 
-    add_units = 'ncatted -a units,global,c,c,{} {}'.format(ncdf.variables[var].units, outfile) 
+    add_path_raw = 'ncatted -a path_raw,global,c,c,{} {}'.format(str(ncdf.filepath()), tmpfile+'rmtime.nc') 
+    add_units = 'ncatted -a units,global,c,c,{} {}'.format(ncdf.variables[var].units, tmpfile+'rmtime.nc') 
  
-    echo_end = ("echo data is being detrended w.r.t. global mean trend " 
-                "and are anomaly versus muli-year daily mean\n")
+#    echo_end = ("echo data is being detrended w.r.t. global mean trend " 
+#                "and are anomaly versus muli-year daily mean\n")
+    echo_end = ("echo data selection and temporal means are calculated using"
+                " cdo \n")
     ncdf.close()
     # ORDER of commands, --> is important!
 
@@ -378,8 +400,15 @@ def preprocessing_ncdf(outfile, datesstr, cls, ex):
     args = [sel_dates1, sel_dates2]
     kornshell_with_input(args, cls)
     args = [sel_dates3, sel_dates4, concat, convert_time_axis, convert_temp_freq, 
-            rm_timebnds, rm_res_timebnds, detrend, anom, add_path_raw, add_units, echo_end] 
+            rm_timebnds, rm_res_timebnds, add_path_raw, add_units, echo_end] 
+#    args = [detrend, anom, echo_end] 
     kornshell_with_input(args, cls)
+# =============================================================================
+#   Perform detrending and calculation of anomalies with xarray 
+# =============================================================================
+    # This is done outside CDO because CDO is not calculating trend based on 
+    # a specific day of the year, but only for the annual mean.
+    detrend_anom_ncdf3D(tmpfile+'rmtime.nc', outfile)
 # =============================================================================
 #     # update class (more a check if dates are indeed correct)
 # =============================================================================
@@ -444,7 +473,7 @@ def perform_post_processing(ex):
         else:    
             var_class, ex = preprocessing_ncdf(outfile, datesstr, var_class, ex)
     
-def RV_spatial_temporal_mask(ex, RV, importRVts, months):
+def RV_spatial_temporal_mask(ex, RV, importRVts, RV_months):
     '''Select months of your Response Variable that you want to predict.
     RV = the RV class
     ex = experiment dictionary 
@@ -481,7 +510,7 @@ def RV_spatial_temporal_mask(ex, RV, importRVts, months):
 #    one_year = RV.dates.where(RV.dates.year == RV.startyear+1).dropna()
      # Selecting the timesteps of 14 day mean ts that fall in juli and august
     RV_period = []
-    for mon in months:
+    for mon in RV_months:
         # append the indices of each year corresponding to your RV period
         RV_period.insert(-1, np.where(RV.dates.month == mon)[0] )
     RV_period = [x for sublist in RV_period for x in sublist]
@@ -501,14 +530,14 @@ def RV_spatial_temporal_mask(ex, RV, importRVts, months):
                                               
     elif importRVts == False:
         ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range + 
-                                      ex['maskname'] )
+                                      ex['spatial_mask_naming'] )
         # =============================================================================
         # 3.2 Select spatial mask to create 1D timeseries (e.g. a SREX region)
         # =============================================================================
         # You can load a spatial mask here and use it to create your
         # full timeseries (of length equal to actor time series)                                                        
         try:
-            mask_dic = np.load(ex['path_masks'], encoding='latin1').item()
+            mask_dic = np.load(ex['spatial_mask_file'], encoding='latin1').item()
             RV_array = mask_dic['RV_array']
             xarray_plot(RV_array)
         except IOError as e:
@@ -580,7 +609,7 @@ def xarray_plot(data, path='default', name = 'default', saving=False):
     import cartopy.crs as ccrs
     import numpy as np
     plt.figure()
-    data = np.squeeze(data)
+    data = data.squeeze()
     if len(data.longitude[np.where(data.longitude > 180)[0]]) != 0:
         data = convert_longitude(data)
     else:
@@ -595,7 +624,8 @@ def xarray_plot(data, path='default', name = 'default', saving=False):
         data = data.where(data.mask==True, drop=True)
     else:
         cen_lon = data.longitude.mean().values
-    proj = ccrs.Orthographic(central_longitude=cen_lon.values, central_latitude=data.latitude.mean().values)
+    proj = ccrs.LambertCylindrical(central_longitude=cen_lon)
+#    proj = ccrs.Orthographic(central_longitude=cen_lon, central_latitude=data.latitude.mean())
     ax = plt.axes(projection=proj)
     ax.coastlines()
     # ax.set_global()
@@ -623,12 +653,13 @@ def convert_longitude(data):
     data['longitude'] = convert_lon
     return data
 
-def detrendncdf3D(filename):
+def detrend_anom_ncdf3D(filename, outfile):
+    #%%
     import xarray as xr
     import pandas as pd
     import numpy as np
-    import scipy
-    filename = tmpfile+'an.nc'
+    from netCDF4 import num2date
+#    filename = os.path.join(ex['path_pp'], 'sst_1979-2017_2mar_31aug_dt-1days_2.5deg.nc')
     ncdf = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
     variables = list(ncdf.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
@@ -637,62 +668,42 @@ def detrendncdf3D(filename):
     numtime = ncdf.variables['time'].values
     timeattr = ncdf.variables['time'].attrs
     dates = pd.to_datetime(num2date(numtime[:], units=timeattr['units'], calendar=timeattr['calendar']))
-    stepsyr = dates.where(dates.year == 1980).dropna(how='all')
-    marray = np.squeeze(ncdf.to_array(file_path).rename(({file_path: cls.name.replace(' ', '_')})))
+    stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
+#    marray = np.squeeze(ncdf.to_array(filename).rename(({filename: var})))
+    marray = np.squeeze(ncdf.to_array(name=var))
     marray['time'] = dates
     
-    def detrendfunc2d(arr_oneday):
-#        outputarr = np.zeros((arr_oneday.latitude.size, arr_oneday.longitude.size))
-        outputarr = np.zeros(arr_oneday.shape)
-        output = xr.DataArray(outputarr, coords= arr_oneday.coords,
-                              dims = arr_oneday.dims)
-        lats = list(arr_oneday.latitude.values)
-        lons = list(arr_oneday.longitude.values)
-        slopesnp = np.zeros(arr_oneday[0].shape)
+    def _detrendfunc2d(arr_oneday):
+        from scipy import signal
+        no_nans = np.nan_to_num(arr_oneday)
+        return signal.detrend(no_nans, axis=0, type='linear')
     
-        for lat in lats:
-            latidx = lats.index(lat)
-            arr_onedaylats = arr_oneday.sel(latitude=lat)
-            for lon in lons:
-                lonidx = lons.index(lon)
-                arr_oneday_gc = arr_onedaylats.sel(longitude=lon)
-                slope = scipy.stats.linregress(range(arr_oneday.time.size), arr_oneday_gc)[0]
-                slopesnp[latidx, lonidx] = slope
-                y = slope * range(arr_oneday.time.size)
-                output[:,latidx, lonidx] = arr_oneday_gc.values - y
-                anom = output - output.mean(dim='time')
-        slopes = xr.DataArray(slopesnp, coords= arr_oneday[0].coords,
-                              dims = arr_oneday[0].dims)
-        return output, anom, slopes
+    
+    def detrendfunc2d(arr_oneday):
+        return xr.apply_ufunc(_detrendfunc2d, arr_oneday.compute(), 
+                              dask='parallelized',
+                              output_dtypes=[float])
                 
-                
+    output = np.zeros( (marray.time.size,  marray.latitude.size, marray.longitude.size) )
     for i in range(stepsyr.size):
         sd =(dates[i::stepsyr.size])
         arr_oneday = marray.sel(time=sd)
-        output, anom, slopes = detrendfunc2d(arr_oneday)
+        output[i::stepsyr.size] = detrendfunc2d(arr_oneday) 
     
+    output = xr.DataArray(output, name=var, dims=marray.dims, coords=marray.coords)
     
-    def trendtesting(anom):
-        anom = output
-        anomp = anom.sel(latitude=40, longitude=0)
-#        slope, intercept = np.polyfit(range(39), anomp, deg=1)
-        slope, intercept = scipy.stats.linregress(range(39), anomp)[:2]
-        def trend(x, a, b):
-            y = a*x + b
-            return y
-        tren = trend(range(39), slope, intercept)
-        detrend = anomp - tren + intercept
-        plt.figure()
-        plt.title('slope is {}, doy is {}'.format(slope, int(da.time.dt.dayofyear[0])))
-        plt.plot(tren)
-        plt.plot(anomp.values)
-        plt.plot(detrend)
-    for i in range(0,stepsyr.size, 5):
-        slopes = np.zeros(len(range(0,stepsyr.size, 5)))
-        sd =(dates[i::stepsyr.size])
-        print(sd)
-        da = marray.sel(time=sd)
-        trendtesting(da)
+    # copy original attributes to xarray
+    output.attrs = ncdf.attrs
+    output = output.drop('variable')
+    
+    # save netcdf
+    output.to_netcdf(outfile, mode='w')
+#    diff = output - abs(marray)
+#    diff.to_netcdf(filename.replace('.nc', 'diff.nc'))
+    #%%
+    return 
+    
+
 
 
 

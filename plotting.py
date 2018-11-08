@@ -84,6 +84,20 @@ def extend_longitude(data):
     plottable = plottable.to_array(dim='ds')
     return plottable
 
+#def convert_longitude(data):
+#    import numpy as np
+#    import xarray as xr
+#    lon_above = data.longitude[np.where(data.longitude > 180)[0]]
+#    lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
+#    # roll all values to the right for len(lon_above amount of steps)
+#    data = data.roll(longitude=len(lon_above))
+#    # adapt longitude values above 180 to negative values
+#    substract = lambda x, y: (x - y)
+#    lon_above = xr.apply_ufunc(substract, lon_above, 360)
+#    convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
+#    data['longitude'] = convert_lon
+#    return data
+
 def convert_longitude(data):
     import numpy as np
     import xarray as xr
@@ -94,7 +108,10 @@ def convert_longitude(data):
     # adapt longitude values above 180 to negative values
     substract = lambda x, y: (x - y)
     lon_above = xr.apply_ufunc(substract, lon_above, 360)
-    convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
+    if (len(lon_normal) != 0) and (lon_normal[0] == 0.):
+        convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
+    else:
+        convert_lon = xr.concat([lon_normal, lon_above], dim='longitude')
     data['longitude'] = convert_lon
     return data
 
@@ -115,8 +132,9 @@ def xarray_mask_plot(data, path='default', saving=False):
         input = input[0]
     else:
         pass
-    proj = ccrs.Orthographic(central_longitude=input.longitude.mean().values, 
-                             central_latitude=input.latitude.mean().values)
+#    proj = ccrs.Orthographic(central_longitude=input.longitude.mean().values, 
+#                             central_latitude=input.latitude.mean().values)
+    proj = ccrs.Miller(central_longitude=240) 
     ax = plt.axes(projection=proj)
     ax.coastlines()
 #    colors = plt.cm.rainbow(np.linspace(0,1,data.max()))

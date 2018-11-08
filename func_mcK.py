@@ -35,6 +35,37 @@ def read_T95(T95name, ex):
     RVts = xr.DataArray(values, coords=[dates], dims=['time'])
     return RVts, dates
 
+def time_mean_bins(xarray, tfreq_new):
+    datetime = pd.to_datetime(xarray['time'].values)
+    one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
+#    tfreq_orig = one_yr[1] - one_yr[0]
+    tfreq_new  = 10
+    if one_yr.size % tfreq_new != 0:
+        print('stepsize {} does not fit in one year'.format(one_yr.size))
+    else:
+        pass
+    fit_steps_yr = int((one_yr.size)  / tfreq_new)
+    bins = list(np.repeat(np.arange(0, fit_steps_yr), tfreq_new))
+    n_years = datetime.year[-1] - datetime.year[0]
+    for y in np.arange(1, n_years+1):
+        x = np.repeat(np.arange(0, fit_steps_yr), tfreq_new)
+        x = x + fit_steps_yr * y
+        [bins.append(i) for i in x]
+    label_bins = xr.DataArray(bins, [xarray.coords['time'][:]], name='time')
+    label_dates = xr.DataArray(xarray.time.values, [xarray.coords['time'][:]], name='time')
+    xarray['bins'] = label_bins
+    xarray['time_dates'] = label_dates
+    xarray = xarray.set_index(time=['bins','time_dates'])
+    
+    half_step = tfreq_new/2.
+    newidx = np.arange(half_step, datetime.size, tfreq_new, dtype=int)
+    newdate = label_dates[newidx]
+    
+
+    group_bins = xarray.groupby('bins').mean(dim='time', keep_attrs=True)
+    group_bins['bins'] = newdate.values
+    return group_bins.rename({'bins' : 'time'})
+
 def make_datestr(dates, ex):
     start_yr = pd.DatetimeIndex(start=ex['sstartdate'], end=ex['senddate'], 
                                 freq=(dates[1] - dates[0]))
@@ -93,7 +124,7 @@ def save_figure(data, path):
         path = path
     import datetime
     today = datetime.datetime.today().strftime("%d-%m-%y_%H'%M")
-    if data.name != '':
+    if type(data.name) is not type(None):
         name = data.name.replace(' ', '_')
     if 'name' in locals():
         print('input name is: {}'.format(name))
@@ -109,6 +140,7 @@ def xarray_plot(data, path='default', name = 'default', saving=False):
     import matplotlib.pyplot as plt
     import cartopy.crs as ccrs
     import numpy as np
+#    original
     plt.figure()
     if len(data.longitude[np.where(data.longitude > 180)[0]]) != 0:
         if data.longitude.where(data.longitude==0).dropna(dim='longitude', how='all') == 0.:
@@ -134,7 +166,7 @@ def xarray_plot(data, path='default', name = 'default', saving=False):
     vmin = -max(abs(vmin),vmax) ; vmax = max(abs(vmin),vmax)
     # ax.set_global()
     if 'mask' in list(data.coords.keys()):
-        plot = data.where(data.mask==True).plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
+        plot = data.copy().where(data.mask==True).plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
                              transform=ccrs.PlateCarree(), add_colorbar=True,
                              vmin=vmin, vmax=vmax)
     else:

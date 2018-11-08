@@ -115,7 +115,7 @@ def quicksave_ncdf(data, cls, path, name):
     data.to_netcdf(os.path.join(path, name))
     print(('{} to path {}'.format(name, path)))
 
-def clustering_spatial(data, ex, n_clusters, region, cls):
+def clustering_spatial(data, ex, n_clusters, region):
     import numpy as np
     import xarray as xr
     import os
@@ -148,9 +148,10 @@ def clustering_spatial(data, ex, n_clusters, region, cls):
         output_lonlat[land_gcs] = output_lonlat[land_gcs] + 1
         output_lonlat = np.reshape(np.array(output_lonlat), region_values[0].shape)
         output.values = output_lonlat
-        output.name = cls.name + '_' + str(n_clusters) + '_' + name_method
+#        output.name = cls.name + '_' + str(n_clusters) + '_' + name_method
+        output.name = ex['name'] + '_' + str(n_clusters) + '_' + name_method
         
-        folder = os.path.join(cls.base_path,'Clustering_spatial/', 
+        folder = os.path.join(ex['base_path'],'Clustering_spatial/', 
                               '{}deg_tfreq{}'.format(ex['grid_res'],ex['tfreq']))
         if os.path.isdir(folder) != True : os.makedirs(folder)
 #        savepath = os.path.join(folder, output.name)

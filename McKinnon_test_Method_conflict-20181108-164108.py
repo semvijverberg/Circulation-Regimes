@@ -58,8 +58,29 @@ datesmcK = func_mcK.make_datestr(datesmcK, ex)
 # full Time series of T95 (Juni, Juli, August summer)
 mcKts = mcKtsfull.sel(time=datesmcK)
 
-mcKts = func_mcK.time_mean_bins(mcKts, 5)
+xarray = mcKts.copy()
+datetime = pd.to_datetime(xarray['time'].values)
+one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
+tfreq_orig = one_yr[1] - one_yr[0]
+tfreq_new  = 10
+if one_yr.size % tfreq_new != 0:
+    print('stepsize {} does not fit in one year'.format(one_yr.size))
+else:
+    pass
+fit_steps_yr = int((one_yr.size)  / tfreq_new)
+bins = list(np.repeat(np.arange(0, fit_steps_yr), tfreq_new))
+n_years = datetime.year[-1] - datetime.year[0]
 
+for y in np.arange(1, n_years+1):
+    x = np.repeat(np.arange(0, fit_steps_yr), tfreq_new)
+    x = x + fit_steps_yr * y
+    [bins.append(i) for i in x]
+label_bins = xr.DataArray(bins, [mcKts.coords['time'][:]], name='time')
+label_dates = xr.DataArray(mcKts.time.values, [mcKts.coords['time'][:]], name='time')
+xarray['bins'] = label_bins
+xarray['time_dates'] = label_dates
+xarray = xarray.set_index(time=['cluster','time_date'])
+group_clusters = xarray.groupby('bins').mean(dim='time', keep_attrs=True)
 
 
 # binary time serie when T95 exceeds 1 std

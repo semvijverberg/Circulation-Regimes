@@ -27,7 +27,7 @@ find_region = plotting.find_region
 # load post processed data
 #path = '/Users/semvijverberg/surfdrive/Data_ERAint/t2m_u_m4-8_dt10/1jun-24aug_2.5natearth_with_US_mask/'
 #ex = np.load(os.path.join(path, 'input_dic_part_1.npy')).item()
-new = '/Users/semvijverberg/surfdrive/Data_ERAint/t2mmax_z_diff_tfreqs/t2mmax_z_m3-08_dt14/1jun-24aug_aver_tf14_n6_lag1-4/input_dic_part_1.npy'
+new = '/Users/semvijverberg/surfdrive/Data_ERAint/t2mmax_sst_m3-08_dt14/1jun-24aug_averAggljacc_tf14_n8_lag1-1/input_dic_part_1.npy'
 ex = np.load(new, encoding='latin1').item()
 #ex = np.load(filename_exp_design1, encoding='latin1').item()
 RV_name = 't2mmax'
@@ -62,7 +62,7 @@ McKts = functions.Mckin_timeseries(tmaxRVperiod, RV)
 # =============================================================================
 # clustering predictant / response variable
 # =============================================================================
-
+ex['name'] = RV.name
 methods = ['KMeans', 'AgglomerativeClustering', 'hierarchical']
 linkage = ['complete', 'average']
 ex['distmetric'] = 'jaccard'
@@ -71,7 +71,7 @@ ex['clusmethod'] = methods[1] ; ex['linkage'] = linkage ; region='U.S.'
 #%%
 n_clusters = [2, 3, 4, 5, 6, 7, 8, 9]
 for n in n_clusters:
-    output = functions.clustering_spatial(McKts, ex, n, region, RV)
+    output = functions.clustering_spatial(McKts, ex, n, region)
 #%% Saving output in dictionary
 # settings for tfreq = 14
 ex['linkage'] = linkage[1]
