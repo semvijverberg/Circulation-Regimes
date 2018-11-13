@@ -36,8 +36,8 @@ ex = dict(
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
      'path_pp'      :       path_pp,
-     'sstartdate'   :       '1982-06-24',
-     'senddate'     :       '1982-08-22',
+     'sstartdate'   :       '1982-06-1',
+     'senddate'     :       '1982-08-31',
      'map_proj'     :       map_proj,
      'fig_path'     :       "/Users/semvijverberg/surfdrive/McKinRepl/T95_ERA-I"}
      )
@@ -54,84 +54,32 @@ print(region)
 # Load in mckinnon Time series
 T95name = 'PEP-T95TimeSeries.txt'
 mcKtsfull, datesmcK = func_mcK.read_T95(T95name, ex)
-datesmcK_daily = func_mcK.make_datestr(datesmcK, ex)
+datesmcK = func_mcK.make_datestr(datesmcK, ex)
 
 # Selected Time series of T95 ex['sstartdate'] until ex['senddate']
-mcKts = mcKtsfull.sel(time=datesmcK_daily)
+mcKts = mcKtsfull.sel(time=datesmcK)
 
 
 # Load in external ncdf
 ex['name'] = 'sst'
-#filename = '{}_1979-2017_2mar_31aug_dt-1days_2.5deg.nc'.format(ex['name'])
-filename = '{}_1979-2017_2jan_31aug_dt-1days_2.5deg.nc'.format(ex['name'])
+filename = '{}_1979-2017_2mar_31aug_dt-1days_2.5deg.nc'.format(ex['name'])
 # full globe - full time series
 varfullgl = func_mcK.import_array(filename, ex)
-## region mckinnon - full time series
-varfullreg = func_mcK.find_region(varfullgl, region=region)[0]
-## Converting Mckinnon timestemp to match xarray timestemp
-matchdaysmcK = func_mcK.to_datesmcK(datesmcK, datesmcK[0].hour, varfullgl.time[0].dt.hour)
-ex['tfreq'] = 1 
-## full globe - only (mcKinnon) summer days (Juni, Juli, August)
-#varsumgl = varfullgl.sel(time=matchdaysmcK)
-## region mckinnon - Mckinnon summer days (Juni, Juli, August)
-#varsumreg = func_mcK.find_region(varsumgl, region=region)[0]
-## region mckinnon - full time series
-#varfullreg = func_mcK.find_region(varfullgl, region=region)[0]
-
-
-## region mckinnon - only (mcKinnon) summer 
-#func_mcK.xarray_plot(varsumreg.mean(dim='time')) 
-
-#for i in range(3):
-#    func_mcK.xarray_plot(varsumreg.isel(time=i)) 
-
-#%%
-# take means over bins over tfreq days
-ex['tfreq'] = 1 
-mcKts, datesmcK = func_mcK.time_mean_bins(mcKts, ex)
-
-def oneyr(datetime):
-    return datetime.where(datetime.year==datetime.year[300]).dropna()
-
-datetime = datesmcK
-
-def expand_times_for_lags(datesmcK, ex):
-    expanded_time = []
-    for yr in set(datetime.year):
-        one_yr = datetime.where(datetime.year == yr).dropna(how='any')
-        start_mcK = one_yr[0]
-        #start day shifted half a time step
-        half_step = ex['tfreq']/2.
-#        origshift = np.arange(half_step, datetime.size, ex['tfreq'], dtype=int)
-        start_mcK = start_mcK - np.timedelta64(int(half_step+0.49), 'D')
-        last_day = '{}{}'.format(yr, ex['senddate'][4:])
-        end_mcK   = pd.to_datetime(last_day)
-#        adj_year = pd.DatetimeIndex(start=start_mcK, end=end_mcK, 
-#                                    freq=(datetime[1] - datetime[0]), 
-#                                    closed = None).values
-        steps = len(one_yr)
-        shift_start = start_mcK - (steps) * np.timedelta64(ex['tfreq'], 'D')
-        adj_year = pd.DatetimeIndex(start=shift_start, end=end_mcK, 
-                                    freq=pd.Timedelta( '1 days'), 
-                                    closed = None).values
-        [expanded_time.append(date) for date in adj_year]
-    
-    return pd.to_datetime(expanded_time)
-
-
-
-
-expanded_time = expand_times_for_lags(datesmcK, ex)
 # Converting Mckinnon timestemp to match xarray timestemp
-expandeddaysmcK = func_mcK.to_datesmcK(expanded_time, expanded_time[0].hour, varfullgl.time[0].dt.hour)
-# region mckinnon - full time series
-varfselreg = varfullgl.sel(time=expandeddaysmcK)
-
-varfullreg = func_mcK.find_region(varfselreg, region=region)[0]
-varfullreg, datesvar = func_mcK.time_mean_bins(varfullreg, ex)
-
 matchdaysmcK = func_mcK.to_datesmcK(datesmcK, datesmcK[0].hour, varfullgl.time[0].dt.hour)
-varsumreg = varfullreg.sel(time=matchdaysmcK)
+# full globe - only (mcKinnon) summer days (Juni, Juli, August)
+varsumgl = varfullgl.sel(time=matchdaysmcK)
+# region mckinnon - Mckinnon summer days (Juni, Juli, August)
+varsumreg = func_mcK.find_region(varsumgl, region=region)[0]
+# region mckinnon - full time series
+varfullreg = func_mcK.find_region(varfullgl, region=region)[0]
+
+
+# take means over bins over tfreq days
+ex['tfreq'] = 5
+xarray = mcKts
+#%%
+mcKts, datesmcK = func_mcK.time_mean_bins(xarray, ex)
 
 
 # binary time serie when T95 exceeds 1 std
@@ -143,15 +91,11 @@ hotindex = np.where( np.isnan(hotts) == False )[0]
 
 
 
+
+    
 ## plotting same figure as in paper
-
-year2012 = mcKts.where(mcKts.time.dt.year == 2012).dropna(dim='time', how='any')
-plotpaper = mcKts.sel(time=pd.DatetimeIndex(start=year2012.time.values[0], 
-                                            end=year2012.time.values[-1], 
-                                            freq=(datesmcK[1] - datesmcK[0])))
-#plotpaper = mcKtsfull.sel(time=pd.DatetimeIndex(start='2012-06-23', end='2012-08-21', 
-#                                freq=(datesmcK[1] - datesmcK[0])))
-
+plotpaper = mcKtsfull.sel(time=pd.DatetimeIndex(start='2012-06-23', end='2012-08-21', 
+                                freq=(datesmcK[1] - datesmcK[0])))
 plotpaperhotdays = plotpaper.where( plotpaper.values > hotdaythreshold) 
 plotpaperhotdays = plotpaperhotdays.dropna(how='all', dim='time').time
 plt.figure()
@@ -163,24 +107,29 @@ for days in plotpaperhotdays.time.values:
 
 
 
+## region mckinnon - only (mcKinnon) summer 
+#func_mcK.xarray_plot(varsumreg.mean(dim='time')) 
+
+#for i in range(3):
+#    func_mcK.xarray_plot(varsumreg.isel(time=i)) 
 
 
-std = varfullreg.std(dim='time')
+std = varsumgl.std(dim='time')
 # not merging hot days which happen consequtively
 
-matchhotdates = func_mcK.to_datesmcK(hotdates, hotdates[0].dt.hour, varfullreg.time[0].dt.hour)
+matchhotdates = func_mcK.to_datesmcK(hotdates, hotdates[0].dt.hour, varfullgl.time[0].dt.hour)
 # Select concurrent hot days
-varhotdays = varfullreg.sel(time=matchhotdates)
+varhotdays = varsumreg.sel(time=matchhotdates)
 
-#matchpaperplothotdates = func_mcK.to_datesmcK(plotpaperhotdays.time, hotdates[0].dt.hour, varhotdays.time[0].dt.hour)
-#test = varhotdays.sel(time=matchpaperplothotdates[:5])
-#for day in matchpaperplothotdates[:5]:
-#    func_mcK.xarray_plot(varfullreg.sel(time=day)) 
+matchpaperplothotdates = func_mcK.to_datesmcK(plotpaperhotdays.time, hotdates[0].dt.hour, varhotdays.time[0].dt.hour)
+plotting = varhotdays.sel(time=matchpaperplothotdates[:5])
+for day in matchpaperplothotdates[:5]:
+    func_mcK.xarray_plot(varfullreg.sel(time=day)) 
 
 #%% Mean over 230 hot days
 #lags = [20, 30, 40, 50]
 #lags = [0, 5]
-lags = [0, 50]
+lags = [0, 5, 10, 25, 40, 50]
 
 array = np.zeros( (len(lags),varsumreg.latitude.size, varsumreg.longitude.size) )
 mcK_mean = xr.DataArray(data=array, coords=[lags, varsumreg.latitude, varsumreg.longitude], 
@@ -200,12 +149,8 @@ for lag in lags:
     mcK_mean[idx] = varhotdays 
     
 mcK_mean.attrs['units'] = 'Kelvin (absolute values)'
-folder = os.path.join(ex['fig_path'], 'mcKinnon_mean')
-if os.path.isdir(folder) != True : os.makedirs(folder)
-fname = '{} - mean composite tf{} lags {} {}.png'.format(ex['name'], ex['tfreq'],
-         lags, region)
-file_name = os.path.join(folder, fname)
-
+file_name = os.path.join(ex['fig_path'], 
+             'mean composite lag{}-{}.png'.format(lags[0], lags[-1]))
 title = 'mean composite - absolute values \nT95 McKinnon data - ERA-I SST'
 kwrgs = dict( {'vmin' : -3*mcK_mean.std().values, 'vmax' : 3*mcK_mean.std().values, 'title' : title, 'clevels' : 'notdefault',
                'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
@@ -231,11 +176,9 @@ for lag in lags:
     mcK_mean_w[idx] = varhotdays * weights
     
 mcK_mean_w.attrs['units'] = 'Kelvin (absolute values)'
-folder = os.path.join(ex['fig_path'], 'weighted_mean')
-if os.path.isdir(folder) != True : os.makedirs(folder)
-fname = '{} - weighted mean composite tf{} lags {} {}.png'.format(
-                     ex['name'], ex['tfreq'], lags, region)
-file_name = os.path.join(folder, fname)
+file_name = os.path.join(ex['fig_path'], 
+             '{} - weighted mean composite lag{}-{}.png'.format(
+                     ex['name'], lags[0], lags[-1]))
 title = ('{} - weighted mean composite - absolute values \nT95 McKinnon data - '
         'ERA-I SST'.format(ex['name']))
 kwrgs = dict( {'vmin' : -3*mcK_mean_w.std().values, 'vmax' : 3*mcK_mean_w.std().values, 'title' : title, 'clevels' : 'notdefault',
@@ -246,7 +189,7 @@ func_mcK.finalfigure(mcK_mean_w, file_name, kwrgs)
 
 #%% Weighted eofs
 #lags = [0, 5, 10, 25, 40, 50]
-n_eofs_used = 10
+n_eofs_used = 30
 scaling = 0
 
 
@@ -278,40 +221,20 @@ for lag in lags:
     w_eofs[idx] = wmean_eofs
     
 
-def plotting_wrapper(plotarr, foldername):
-    file_name = os.path.join(ex['fig_path'], foldername,
-                 '{} - weighted anomalous {} tf{} lags {}.png'.format(
-                 ex['name'], plotarr.name, ex['tfreq'], lags))
-    if os.path.isdir(os.path.join(ex['fig_path'], foldername)) != True : 
-        os.makedirs(os.path.join(ex['fig_path'], foldername))
+def plotting_wrapper(plotarr):
+    file_name = os.path.join(ex['fig_path'], 
+                 'Sem weighted anomalous {} lag{}-{}.png'.format(plotarr.name, lags[0], lags[-1]))
     title = ('Sem weighted anomalous {} \n'
              'T95 McKinnon data - ERA-I SST region {}'.format(
             plotarr.name, region))
-    kwrgs = dict( {'vmin' : -3*plotarr.std().values, 'vmax' : 3*plotarr.std().values, 
-                   'title' : title, 'clevels' : 'notdefault',
+    kwrgs = dict( {'vmin' : -3*plotarr.std().values, 'vmax' : 3*plotarr.std().values, 'title' : title, 'clevels' : 'notdefault',
                    'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
     func_mcK.finalfigure(plotarr, file_name, kwrgs) 
-
-foldername = 'weighted_oefs'
-plotting_wrapper(w_eofs, foldername)  
-
-#%%
-def plotting_loads_wrapper(loadingsarr, foldername):
-    loadingsarr.attrs['units'] = 'Kelvin (absolute values)'
-    file_name = os.path.join(ex['fig_path'], foldername,
-             '{} - {} tf{} at lag{}.png'.format(ex['name'],loadingsarr.name, 
-              ex['tfreq'],lag))
-    title = '{} - T95 vs ERA-I SST region {}'.format(loadingsarr.name, region)
-                                                 
-    kwrgs = dict( {'vmin' : -3*loadingsarr.std().values, 'vmax' : 3*loadingsarr.std().values, 
-                   'title' : title, 'clevels' : 'notdefault',
-               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
-    func_mcK.finalfigure(loadingsarr.sel(loads=slice(0,10)), file_name, kwrgs) 
-
-plotting_loads_wrapper(loadings, foldername)
+    
+plotting_wrapper(w_eofs)  
 #%% Rotated PCA
 #lags = [0, 5, 10, 25, 40, 50]
-max_comps = n_eofs_used
+max_comps = 10
 
 
 
@@ -335,12 +258,19 @@ for lag in lags:
                                       loadings, weights)
     w_reofs[idx] = wmean_reof
 #%%
-foldername = 'weighted_reofs'
-plotting_wrapper(w_reofs, foldername)
-plotting_loads_wrapper(loadings, foldername)
+plotting_wrapper(w_reofs)
 
-#%% Plotting loading patterns
 
+#%% Plotting loads
+loadings.attrs['units'] = 'Kelvin (absolute values)'
+file_name = os.path.join(ex['fig_path'], 
+             'Sem weighted anomalous {} lag{}-{}.png'.format(loadings.name, 
+             lags[0], lags[-1]))
+title = 'rot eofs - T95 vs ERA-I SST region {}'.format(region)
+                                                 
+kwrgs = dict( {'vmin' : -3*loadings.std().values, 'vmax' : 3*loadings.std().values, 'title' : title, 'clevels' : 'notdefault',
+               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
+func_mcK.finalfigure(loadings.sel(loads=slice(0,10)), file_name, kwrgs) 
 
 #%%
 
@@ -513,9 +443,9 @@ for lag in lags:
 
 #%% Spatial clustering
 
-globalhotdays = varfullreg.sel(time=matchhotdates)
+globalhotdays = varsumgl.sel(time=matchhotdates)
 landseamask = (globalhotdays[0].values != 0.0)
-input = varfullreg.sel(time=matchhotdates)
+input = varsumgl.sel(time=matchhotdates)
 #smooth_values = smooth(np.reshape(input.values, (input.time.size, input[0].size)), 5)
 input.values = np.reshape(input, (input.time.size, input[0,:,0].size, input[0,0,:].size) )
 input.coords['mask'] = (('latitude','longitude'), landseamask)
@@ -541,7 +471,7 @@ data = binary
 # =============================================================================
 # clustering predictant / response variable
 # =============================================================================
-
+ex['tfreq'] = 1
 methods = ['KMeans', 'AgglomerativeClustering', 'hierarchical']
 linkage = ['complete', 'average']
 ex['distmetric'] = 'euclidean' #'jaccard'

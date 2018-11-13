@@ -36,8 +36,8 @@ ex = dict(
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
      'path_pp'      :       path_pp,
-     'sstartdate'   :       '1982-06-24',
-     'senddate'     :       '1982-08-22',
+     'sstartdate'   :       '1982-06-1',
+     'senddate'     :       '1982-08-31',
      'map_proj'     :       map_proj,
      'fig_path'     :       "/Users/semvijverberg/surfdrive/McKinRepl/T95_ERA-I"}
      )
@@ -66,11 +66,8 @@ ex['name'] = 'sst'
 filename = '{}_1979-2017_2jan_31aug_dt-1days_2.5deg.nc'.format(ex['name'])
 # full globe - full time series
 varfullgl = func_mcK.import_array(filename, ex)
-## region mckinnon - full time series
-varfullreg = func_mcK.find_region(varfullgl, region=region)[0]
 ## Converting Mckinnon timestemp to match xarray timestemp
-matchdaysmcK = func_mcK.to_datesmcK(datesmcK, datesmcK[0].hour, varfullgl.time[0].dt.hour)
-ex['tfreq'] = 1 
+#matchdaysmcK = func_mcK.to_datesmcK(datesmcK, datesmcK[0].hour, varfullgl.time[0].dt.hour)
 ## full globe - only (mcKinnon) summer days (Juni, Juli, August)
 #varsumgl = varfullgl.sel(time=matchdaysmcK)
 ## region mckinnon - Mckinnon summer days (Juni, Juli, August)
@@ -87,11 +84,11 @@ ex['tfreq'] = 1
 
 #%%
 # take means over bins over tfreq days
-ex['tfreq'] = 1 
+ex['tfreq'] =10
 mcKts, datesmcK = func_mcK.time_mean_bins(mcKts, ex)
 
 def oneyr(datetime):
-    return datetime.where(datetime.year==datetime.year[300]).dropna()
+    return datetime.where(datetime.year==datetime.year[0]).dropna()
 
 datetime = datesmcK
 
@@ -132,7 +129,7 @@ varfullreg, datesvar = func_mcK.time_mean_bins(varfullreg, ex)
 
 matchdaysmcK = func_mcK.to_datesmcK(datesmcK, datesmcK[0].hour, varfullgl.time[0].dt.hour)
 varsumreg = varfullreg.sel(time=matchdaysmcK)
-
+#%%
 
 # binary time serie when T95 exceeds 1 std
 hotdaythreshold = mcKts.mean(dim='time').values + mcKts.std().values
@@ -143,15 +140,13 @@ hotindex = np.where( np.isnan(hotts) == False )[0]
 
 
 
-## plotting same figure as in paper
 
+    
+## plotting same figure as in paper
 year2012 = mcKts.where(mcKts.time.dt.year == 2012).dropna(dim='time', how='any')
 plotpaper = mcKts.sel(time=pd.DatetimeIndex(start=year2012.time.values[0], 
                                             end=year2012.time.values[-1], 
                                             freq=(datesmcK[1] - datesmcK[0])))
-#plotpaper = mcKtsfull.sel(time=pd.DatetimeIndex(start='2012-06-23', end='2012-08-21', 
-#                                freq=(datesmcK[1] - datesmcK[0])))
-
 plotpaperhotdays = plotpaper.where( plotpaper.values > hotdaythreshold) 
 plotpaperhotdays = plotpaperhotdays.dropna(how='all', dim='time').time
 plt.figure()
@@ -202,8 +197,8 @@ for lag in lags:
 mcK_mean.attrs['units'] = 'Kelvin (absolute values)'
 folder = os.path.join(ex['fig_path'], 'mcKinnon_mean')
 if os.path.isdir(folder) != True : os.makedirs(folder)
-fname = '{} - mean composite tf{} lags {} {}.png'.format(ex['name'], ex['tfreq'],
-         lags, region)
+fname = '{} - mean composite tf{} lag{}-{} {}.png'.format(ex['name'], ex['tfreq'],
+         lags[0], lags[-1], region)
 file_name = os.path.join(folder, fname)
 
 title = 'mean composite - absolute values \nT95 McKinnon data - ERA-I SST'
@@ -233,8 +228,8 @@ for lag in lags:
 mcK_mean_w.attrs['units'] = 'Kelvin (absolute values)'
 folder = os.path.join(ex['fig_path'], 'weighted_mean')
 if os.path.isdir(folder) != True : os.makedirs(folder)
-fname = '{} - weighted mean composite tf{} lags {} {}.png'.format(
-                     ex['name'], ex['tfreq'], lags, region)
+fname = '{} - weighted mean composite tf{} lag{}-{} {}.png'.format(
+                     ex['name'], ex['tfreq'], lags[0], lags[-1], region)
 file_name = os.path.join(folder, fname)
 title = ('{} - weighted mean composite - absolute values \nT95 McKinnon data - '
         'ERA-I SST'.format(ex['name']))
@@ -280,8 +275,8 @@ for lag in lags:
 
 def plotting_wrapper(plotarr, foldername):
     file_name = os.path.join(ex['fig_path'], foldername,
-                 '{} - weighted anomalous {} tf{} lags {}.png'.format(
-                 ex['name'], plotarr.name, ex['tfreq'], lags))
+            '{} - weighted anomalous {} tf{} lag{}-{} {}.png'.format(
+            ex['name'], plotarr.name, ex['tfreq'], lags[0], lags[-1]), region)
     if os.path.isdir(os.path.join(ex['fig_path'], foldername)) != True : 
         os.makedirs(os.path.join(ex['fig_path'], foldername))
     title = ('Sem weighted anomalous {} \n'
@@ -336,7 +331,7 @@ for lag in lags:
     w_reofs[idx] = wmean_reof
 #%%
 foldername = 'weighted_reofs'
-plotting_wrapper(w_reofs, foldername)
+#plotting_wrapper(w_reofs, foldername)
 plotting_loads_wrapper(loadings, foldername)
 
 #%% Plotting loading patterns

@@ -139,11 +139,7 @@ def clustering_spatial(data, ex, n_clusters, region):
         n_land_stations = output_lonlat[output_lonlat==1].size
         indic_st_land = indic_st_land.reshape( (n_land_stations, data.time.size)  )
         [np.count_nonzero(indic_st_land[:,i]) for i in range(input.time.size) ]
-
-        duplicates = [len(np.argwhere(indic_st_land[:,i] == indic_st_land[:,i+1])) 
-                        for i in range(input.time.size-1)]
-        [i for i in range(input.time.size) if list(indic_st_land[:,i]) in indic_st_land.tolist()]
-         
+#        X = StandardScaler().fit_transform(X_station_time)
         out_clus = cluster_method.fit(indic_st_land)
         labels = out_clus.labels_
         # plug in the land gridcell with the labels

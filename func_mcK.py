@@ -35,20 +35,97 @@ def read_T95(T95name, ex):
     RVts = xr.DataArray(values, coords=[dates], dims=['time'])
     return RVts, dates
 
-def time_mean_bins(xarray, tfreq_new):
+def timeseries_tofit_bins(xarray, ex):
     datetime = pd.to_datetime(xarray['time'].values)
     one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
-#    tfreq_orig = one_yr[1] - one_yr[0]
-    tfreq_new  = 10
-    if one_yr.size % tfreq_new != 0:
-        print('stepsize {} does not fit in one year'.format(one_yr.size))
+    
+    seldays_pp = pd.DatetimeIndex(start=one_yr[0], end=one_yr[-1], 
+                                freq=(datetime[1] - datetime[0]))
+    end_day = one_yr.max() 
+    # after time averaging over 'tfreq' number of days, you want that each year 
+    # consists of the same day. For this to be true, you need to make sure that
+    # the selday_pp period exactly fits in a integer multiple of 'tfreq'
+    temporal_freq = np.timedelta64(ex['tfreq'], 'D') 
+    fit_steps_yr = (end_day - seldays_pp.min() ) / temporal_freq
+    # line below: The +1 = include day 1 in counting
+    start_day = (end_day - (temporal_freq * np.round(fit_steps_yr, decimals=0))) \
+                + np.timedelta64(1, 'D') 
+    
+    def make_datestr_2(datetime, start_yr):
+        breakyr = datetime.year.max()
+        datesstr = [str(date).split('.', 1)[0] for date in start_yr.values]
+        nyears = (datetime.year[-1] - datetime.year[0])+1
+        startday = start_yr[0].strftime('%Y-%m-%dT%H:%M:%S')
+        endday = start_yr[-1].strftime('%Y-%m-%dT%H:%M:%S')
+        firstyear = startday[:4]
+        datesdt = start_yr
+        def plusyearnoleap(curr_yr, startday, endday, incr):
+            startday = startday.replace(firstyear, str(curr_yr+incr))
+            endday = endday.replace(firstyear, str(curr_yr+incr))
+            next_yr = pd.DatetimeIndex(start=startday, end=endday, 
+                            freq=(datetime[1] - datetime[0]))
+            # excluding leap year again
+            noleapdays = (((next_yr.month==2) & (next_yr.day==29))==False)
+            next_yr = next_yr[noleapdays].dropna(how='all')
+            return next_yr
+        
+        for yr in range(0,nyears-1):
+            curr_yr = yr+datetime.year[0]
+            next_yr = plusyearnoleap(curr_yr, startday, endday, 1)
+            datesdt = np.append(datesdt, next_yr)
+#            print(len(next_yr))
+#            nextstr = [str(date).split('.', 1)[0] for date in next_yr.values]
+#            datesstr = datesstr + nextstr
+#            print(nextstr[0])
+            
+            upd_start_yr = plusyearnoleap(next_yr.year[0], startday, endday, 1)
+
+            if next_yr.year[0] == breakyr:
+                break
+        datesdt = pd.to_datetime(datesdt)
+        return datesdt, upd_start_yr
+    
+    start_yr = pd.DatetimeIndex(start=start_day, end=end_day, 
+                                freq=(datetime[1] - datetime[0]))
+    # exluding leap year from cdo select string
+    noleapdays = (((start_yr.month==2) & (start_yr.day==29))==False)
+    start_yr = start_yr[noleapdays].dropna(how='all')
+    datesdt, next_yr = make_datestr_2(datetime, start_yr)
+    months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
+                         8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
+    startdatestr = '{} {}'.format(start_day.day, months[start_day.month])
+    enddatestr   = '{} {}'.format(end_day.day, months[end_day.month])
+    print('adjusted time series to fit bins: \nFrom {} to {}'.format(
+                startdatestr, enddatestr))
+    adj_array = xarray.sel(time=datesdt)
+    return adj_array, datesdt
+    
+
+def time_mean_bins(xarray, ex):
+    datetime = pd.to_datetime(xarray['time'].values)
+    one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
+    
+    if one_yr.size % ex['tfreq'] != 0:
+        possible = []
+        for i in np.arange(1,20):
+            if 214%i == 0:
+                possible.append(i)
+        print('Error: stepsize {} does not fit in one year\n '
+                         ' supply an integer that fits {}'.format(
+                             ex['tfreq'], one_yr.size))   
+        print('\n Stepsize that do fit are {}'.format(possible))
+        print('\n Will shorten the \'subyear\', so that it the temporal'
+              'frequency fits in one year')
+        xarray, datetime = timeseries_tofit_bins(xarray, ex)
+        one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
+          
     else:
         pass
-    fit_steps_yr = int((one_yr.size)  / tfreq_new)
-    bins = list(np.repeat(np.arange(0, fit_steps_yr), tfreq_new))
-    n_years = datetime.year[-1] - datetime.year[0]
-    for y in np.arange(1, n_years+1):
-        x = np.repeat(np.arange(0, fit_steps_yr), tfreq_new)
+    fit_steps_yr = (one_yr.size)  / ex['tfreq']
+    bins = list(np.repeat(np.arange(0, fit_steps_yr), ex['tfreq']))
+    n_years = (datetime.year[-1] - datetime.year[0]) + 1
+    for y in np.arange(1, n_years):
+        x = np.repeat(np.arange(0, fit_steps_yr), ex['tfreq'])
         x = x + fit_steps_yr * y
         [bins.append(i) for i in x]
     label_bins = xr.DataArray(bins, [xarray.coords['time'][:]], name='time')
@@ -57,14 +134,15 @@ def time_mean_bins(xarray, tfreq_new):
     xarray['time_dates'] = label_dates
     xarray = xarray.set_index(time=['bins','time_dates'])
     
-    half_step = tfreq_new/2.
-    newidx = np.arange(half_step, datetime.size, tfreq_new, dtype=int)
+    half_step = ex['tfreq']/2.
+    newidx = np.arange(half_step, datetime.size, ex['tfreq'], dtype=int)
     newdate = label_dates[newidx]
     
 
     group_bins = xarray.groupby('bins').mean(dim='time', keep_attrs=True)
     group_bins['bins'] = newdate.values
-    return group_bins.rename({'bins' : 'time'})
+    dates = pd.to_datetime(newdate.values)
+    return group_bins.rename({'bins' : 'time'}), dates
 
 def make_datestr(dates, ex):
     start_yr = pd.DatetimeIndex(start=ex['sstartdate'], end=ex['senddate'], 
@@ -306,7 +384,7 @@ def finalfigure(xrdata, file_name, kwrgs):
         
 def EOF(data, scaling, neofs=10, center=False, weights=None):
     import numpy as np
-#    from eofs.xarray import Eof
+    from eofs.xarray import Eof
     # Create an EOF solver to do the EOF analysis. Square-root of cosine of
     # latitude weights are applied before the computation of EOFs.
     coslat = np.cos(np.deg2rad(data.coords['latitude'].values)).clip(0., 1.)
@@ -315,8 +393,7 @@ def EOF(data, scaling, neofs=10, center=False, weights=None):
     loadings = solver.eofs(neofs=neofs, eofscaling=scaling)
     loadings.attrs['units'] = 'mode'
     
-    
-    return loadings
+    return loadings.rename({'mode':'loads'})
 
 def project_eof_field(xarray, loadings, n_eofs_used):
     
@@ -467,7 +544,7 @@ def varimax_PCA_sem(xarray, max_comps):
     # convert to nonmasked array
     data = nonmasked
     truncate_by = 'max_comps'
-    max_comps=60
+    max_comps=max_comps
     fraction_explained_variance=0.9
     verbosity=0
     
