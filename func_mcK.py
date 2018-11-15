@@ -17,6 +17,7 @@ import generate_varimax
 from eofs.xarray import Eof
 from shapely.geometry.polygon import LinearRing
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+import scipy 
 
 def read_T95(T95name, ex):
     filepath = os.path.join(ex['path_pp'], T95name)
@@ -212,6 +213,13 @@ def save_figure(data, path):
         name = 'fig_' + today + '.jpeg'
     print(('{} to path {}'.format(name, path)))
     plt.savefig(os.path.join(path,name), format='jpeg', dpi=300, bbox_inches='tight')
+    
+def area_weighted(xarray):
+    # Area weighted     
+    coslat = np.cos(np.deg2rad(xarray.coords['latitude'].values)).clip(0., 1.)
+    area_weights = np.tile(np.sqrt(coslat)[..., np.newaxis],(1,xarray.longitude.size))
+    xarray.values = xarray.values * area_weights 
+    return xarray
 
 def xarray_plot(data, path='default', name = 'default', saving=False):
     # from plotting import save_figure
@@ -341,7 +349,7 @@ def finalfigure(xrdata, file_name, kwrgs):
     else:
         vmin=kwrgs['vmin']
         vmax=kwrgs['vmax']
-        clevels = np.linspace(vmin,vmax,17)
+        clevels = np.linspace(vmin,vmax,kwrgs['steps'])
     cmap = kwrgs['cmap']
     
     n_plots = xrdata[var].size
@@ -531,6 +539,8 @@ def extract_pattern(Composite, totaltimeserie, n_eofs_used, loadings, weights):
     
 
 def varimax_PCA_sem(xarray, max_comps):
+    
+    xarray = area_weighted(xarray)
     geo_object = xarray
     lats = geo_object.latitude.values
     lons = geo_object.longitude.values
@@ -572,3 +582,238 @@ def varimax_PCA_sem(xarray, max_comps):
     
     return xrarray_patterns
 
+def Welchs_t_test(sample, full, alpha):
+    np.warnings.filterwarnings('ignore')
+    mask = (sample[0] == 0.).values
+#    mask = np.reshape(mask, (mask.size))
+    n_space = full.latitude.size*full.longitude.size
+    npfull = np.reshape(full.values, (full.time.size, n_space))
+    npsample = np.reshape(sample.values, (sample.time.size, n_space))
+    
+#    npsample = npsample[np.broadcast_to(mask==False, npsample.shape)] 
+#    npsample = np.reshape(npsample, (sample.time.size, 
+#                                     int(npsample.size/sample.time.size) ))
+#    npfull   = npfull[np.broadcast_to(mask==False, npfull.shape)] 
+#    npfull = np.reshape(npfull, (full.time.size, 
+#                                     int(npfull.size/full.time.size) ))
+       
+    T, pval = scipy.stats.ttest_ind(npsample, npfull, axis=0, 
+                                equal_var=False, nan_policy='omit')
+    pval = np.reshape(pval, (full.latitude.size, full.longitude.size))
+    T = np.reshape(T, (full.latitude.size, full.longitude.size))
+    mask_sig = (pval > alpha) 
+    mask_sig[mask] = True
+    return T, pval, mask_sig
+
+def merge_neighbors(lsts):
+  sets = [set(lst) for lst in lsts if lst]
+  merged = 1
+  while merged:
+    merged = 0
+    results = []
+    while sets:
+      common, rest = sets[0], sets[1:]
+      sets = []
+      for x in rest:
+        if x.isdisjoint(common):
+          sets.append(x)
+        else:
+          merged = 1
+          common |= x
+      results.append(common)
+    sets = results
+  return sets
+
+def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
+    '''
+	takes Corr Coeffs and defines regions by strength
+
+	return A: the matrix whichs entries correspond to region. 1 = strongest, 2 = second strongest...
+    '''
+    print('extracting features ...\n')
+
+	
+	# initialize arrays:
+	# A final return array 
+    A = np.ma.copy(Corr_Coeff)
+	#========================================
+	# STEP 1: mask nodes which were never significantly correlatated to index (= count=0)
+	#========================================
+	
+	#========================================
+	# STEP 2: define neighbors for everey node which passed Step 1
+	#========================================
+
+    indices_not_masked = np.where(A.mask==False)[0].tolist()
+
+    lo = lon_grid.shape[0]
+    la = lat_grid.shape[0]
+	
+	# create list of potential neighbors:
+    N_pot=[[] for i in range(A.shape[0])]
+
+	#=====================
+	# Criteria 1: must bei geographical neighbors:
+	#=====================
+    for i in indices_not_masked:
+        n = []	
+
+        col_i= i%lo
+        row_i = i//lo
+
+		# knoten links oben
+        if i==0:	
+            n= n+[lo-1, i+1, lo ]
+
+		# knoten rechts oben	
+        elif i== lo-1:
+            n= n+[i-1, 0, i+lo]
+
+		# knoten links unten
+        elif i==(la-1)*lo:
+            n= n+ [i+lo-1, i+1, i-lo]
+
+		# knoten rechts unten
+        elif i == la*lo-1:
+            n= n+ [i-1, i-lo+1, i-lo]
+
+		# erste zeile
+        elif i<lo:
+            n= n+[i-1, i+1, i+lo]
+	
+		# letzte zeile:
+        elif i>la*lo-1:
+            n= n+[i-1, i+1, i-lo]
+	
+		# erste spalte
+        elif col_i==0:
+            n= n+[i+lo-1, i+1, i-lo, i+lo]
+	
+		# letzt spalte
+        elif col_i ==lo-1:
+            n= n+[i-1, i-lo+1, i-lo, i+lo]
+	
+		# nichts davon
+        else:
+            n = n+[i-1, i+1, i-lo, i+lo]
+	
+	#=====================
+	# Criteria 2: must be all at least once be significanlty correlated 
+	#=====================	
+        m =[]
+        for j in n:
+            if j in indices_not_masked:
+                m = m+[j]
+		
+		# now m contains the potential neighbors of gridpoint i
+
+	
+	#=====================	
+	# Criteria 3: sign must be the same for each step 
+	#=====================				
+        l=[]
+	
+        cc_i = A.data[i]
+        cc_i_sign = np.sign(cc_i)
+		
+	
+        for k in m:
+            cc_k = A.data[k]
+            cc_k_sign = np.sign(cc_k)
+		
+
+            if cc_i_sign *cc_k_sign == 1:
+                l = l +[k]
+
+            else:
+                l = l
+			
+            if len(l)==0:
+                l =[]
+                A.mask[i]=True	
+			
+            else: l = l +[i]	
+		
+		
+            N_pot[i]=N_pot[i]+ l	
+
+
+
+	#========================================	
+	# STEP 3: merge overlapping set of neighbors
+	#========================================
+    Regions = merge_neighbors(N_pot)
+	
+	#========================================
+	# STEP 4: assign a value to each region
+	#========================================
+	
+
+	# 2) combine 1A+1B 
+    B = np.abs(A)
+	
+	# 3) calculate the area size of each region	
+	
+    Area =  [[] for i in range(len(Regions))]
+	
+    for i in range(len(Regions)):
+        indices = np.array(list(Regions[i]))
+        indices_lat_position = indices//lo
+        lat_nodes = lat_grid[indices_lat_position[:]]
+        cos_nodes = np.cos(np.deg2rad(lat_nodes))		
+		
+        area_i = [np.sum(cos_nodes)]
+        Area[i]= Area[i]+area_i
+	
+	#---------------------------------------
+	# OPTIONAL: Exclude regions which only consist of less than n nodes
+	# 3a)
+	#---------------------------------------	
+	
+    # keep only regions which are larger then the mean size of the regions
+    
+    n_nodes = int(np.mean([len(r) for r in Regions]))
+    
+    R=[]
+    Ar=[]
+    for i in range(len(Regions)):
+        if len(Regions[i])>=n_nodes:
+            R.append(Regions[i])
+            Ar.append(Area[i])
+	
+    Regions = R
+    Area = Ar	
+	
+	
+	
+	# 4) calcualte region value:
+	
+    C = np.zeros(len(Regions))
+	
+    Area = np.array(Area)
+    for i in range(len(Regions)):
+        C[i]=Area[i]*np.mean(B[list(Regions[i])])
+
+
+	
+	
+	# mask out those nodes which didnot fullfill the neighborhood criterias
+    A.mask[A==0] = True	
+		
+		
+	#========================================
+	# STEP 5: rank regions by region value
+	#========================================
+	
+	# rank indices of Regions starting with strongest:
+    sorted_region_strength = np.argsort(C)[::-1]
+	
+	# give ranking number
+	# 1 = strongest..
+	# 2 = second strongest
+	
+    for i in range(len(Regions)):
+        j = list(sorted_region_strength)[i]
+        A[list(Regions[j])]=i+1
+		
+    return np.array(A, dtype=int)

@@ -14,7 +14,7 @@ if sys.version[:1] == '3':
 import func_mcK
 import clustering_temporal
 from ROC_score import ROC_score
-import numpy as np
+import np as np
 import xarray as xr
 import pandas as pd
 import cartopy.crs as ccrs
@@ -73,10 +73,6 @@ varfullreg = func_mcK.find_region(varfullgl, region=region)[0]
 ## Converting Mckinnon timestemp to match xarray timestemp
 matchdaysmcK = func_mcK.to_datesmcK(datesmcK, datesmcK[0].hour, varfullgl.time[0].dt.hour)
 ex['tfreq'] = 1 
-
-# filter out outliers of sst
-if ex['name']=='sst':
-    varfullgl.where(varfullgl.values < 3.5*varfullgl.std().values)
 ## full globe - only (mcKinnon) summer days (Juni, Juli, August)
 #varsumgl = varfullgl.sel(time=matchdaysmcK)
 ## region mckinnon - Mckinnon summer days (Juni, Juli, August)
@@ -213,109 +209,254 @@ fname = '{} - mean composite tf{} lags {} {}.png'.format(ex['name'], ex['tfreq']
 file_name = os.path.join(folder, fname)
 
 title = 'mean composite - absolute values \nT95 McKinnon data - ERA-I SST'
-kwrgs = dict( {'vmin' : -3*mcK_mean.std().values, 'vmax' : 3*mcK_mean.std().values, 
-               'steps' : 17, 'title' : title, 'clevels' : 'notdefault',
+kwrgs = dict( {'vmin' : -3*mcK_mean.std().values, 'vmax' : 3*mcK_mean.std().values, 'title' : title, 'clevels' : 'notdefault',
                'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
 func_mcK.finalfigure(mcK_mean, file_name, kwrgs) 
 #%%
 
 import networkx as nx
 
-array = np.zeros( (len(lags),varsumreg.latitude.size, varsumreg.longitude.size) )
-commun_comp = xr.DataArray(data=array, coords=[lags, varsumreg.latitude, varsumreg.longitude], 
-                      dims=['lag','latitude','longitude'], name='communities_composite', 
-                      attrs={'units':'Kelvin'})
-commun_num = xr.DataArray(data=array, coords=[lags, varsumreg.latitude, varsumreg.longitude], 
-                      dims=['lag','latitude','longitude'], name='communities_numbered', 
-                      attrs={'units':'regions'})
-n_strongest = 7
-n_std = 1.5
 
-for lag in lags:
-    idx = lags.index(lag)
-
-    hotdates_min_lag = matchhotdates - pd.Timedelta(int(lag), unit='d')
-    
-    summerdays_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
-    
-#    full = varfullreg.sel(time=summerdays_min_lag)
-    sample = varfullreg.sel(time=hotdates_min_lag)
-    
-    def extract_commun(xarray, n_std, n_strongest):
-   
-    #    T, pval, mask_sig = func_mcK.Welchs_t_test(sample, full, alpha=0.01)
-    #    threshold = np.reshape( mask_sig, (mask_sig.size) )
-    #    mask_threshold = threshold 
-    #    plt.figure()
-    #    plt.imshow(mask_sig)
-        mean = xarray.mean(dim='time')
-        nparray = np.reshape(np.nan_to_num(mean.values), mean.size)
-        
-        threshold = 1.5 * np.std(nparray)
-        mask_threshold = abs(nparray) < ( threshold )
-        
-        Corr_Coeff = np.ma.MaskedArray(nparray, mask=mask_threshold)
-        lat_grid = mean.latitude.values
-        lon_grid = mean.longitude.values
-    
-        
-        A = func_mcK.define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid)
-        
-        npmap = np.ma.reshape(A, (len(lat_grid), len(lon_grid)))
-        mask_strongest = (npmap!=0.) & (npmap < n_strongest)
-        npmap[mask_strongest==False] = 0
-#        plt.imshow(npmap)
-        xrnpmap = mean.copy()
-        xrnpmap.values = npmap
-        
-        mask = (('latitude', 'longitude'), mask_strongest)
-        mean.coords['mask'] = mask
-        xrnpmap.coords['mask'] = mask
-        mean = mean.where(mean.mask==True)
-        xrnpmap = xrnpmap.where(xrnpmap.mask==True)
-        
-        return mean, xrnpmap
-    commun_mean, commun_numbered = extract_commun(sample, n_std, n_strongest)  
-    commun_comp[idx] = commun_mean
-    commun_num[idx]  = commun_numbered
-#    print(commun_mean.max(), commun_numbered.max())
-
-    
-
-    print(commun_comp[idx].max().values, commun_num[idx].max().values)
-
-    
-
-def plotting_wrapper(plotarr, foldername, kwrgs=None):
-    file_name = os.path.join(ex['fig_path'], foldername,
-                 '{} - {} tf{} lags {}.png'.format(
-                 ex['name'], plotarr.name, ex['tfreq'], lags))
-    if os.path.isdir(os.path.join(ex['fig_path'], foldername)) != True : 
-        os.makedirs(os.path.join(ex['fig_path'], foldername))
-    title = ('{} extracted features {} \n'
-             'T95 McKinnon data - ERA-I SST region {}'.format(
-            n_strongest, plotarr.name, region))
-    if kwrgs == None:
-        kwrgs = dict( {'vmin' : -3*plotarr.std().values, 'vmax' : 3*plotarr.std().values, 
-                       'title' : title, 'clevels' : 'notdefault', 'steps':17,
-                       'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
-    else:
-        kwrgs = kwrgs
-    func_mcK.finalfigure(plotarr, file_name, kwrgs) 
+full = varfullreg.sel(time=summerdays_min_lag)
+sample = varfullreg.sel(time=hotdates_min_lag)
+mask = (sample[0] == 0.).values
+mask = np.reshape(mask, (mask.size))
+n_space = full.latitude.size*full.longitude.size
+full = np.reshape(full.values, (full.time.size, n_space))
+sample = np.reshape(sample.values, (sample.time.size, n_space))
+full.coords['mask'] = (('latitude','longitude'), mask)
+sample.coords['mask'] = (('latitude','longitude'), mask)
 
 
-foldername = 'communities_Marlene'
-#plotting_wrapper(commun_comp, foldername, kwrgs=None)
+T, pval = scipy.stats.ttest_ind(sample, full, axis=0, 
+                                equal_var=False, nan_policy='omit')
 
-kwrgs = dict( {'vmin' : 0, 'vmax' : n_strongest, 
-                   'title' : title, 'clevels' : 'notdefault', 'steps':n_strongest+1,
-                   'map_proj' : map_proj, 'cmap' : plt.cm.Dark2, 'column' : 2} )
-plotting_wrapper(commun_num, foldername, kwrgs=kwrgs)
+xarray = mcK_mean.sel(lag=0) 
+nparray = np.reshape(np.nan_to_num(xarray.values), xarray.size)
+mask_threshold = abs(nparray) < ( threshold )
 
-#%%
-from sklearn.linear_model import LogisticRegression
-from sklearn.datasets import load_iris
-from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(
-                                    X, y, test_size=0.33, random_state=42)
-build_training_vector
+
+
+Corr_Coeff = np.ma.MaskedArray(nparray, mask=mask_threshold)
+lat_grid = xarray.latitude.values
+lon_grid = xarray.longitude.values
+
+npmap = np.ma.reshape(Corr_Coeff, (len(lat_grid), len(lon_grid)))
+plt.imshow(npmap)
+
+
+def merge_neighbors(lsts):
+  sets = [set(lst) for lst in lsts if lst]
+  merged = 1
+  while merged:
+    merged = 0
+    results = []
+    while sets:
+      common, rest = sets[0], sets[1:]
+      sets = []
+      for x in rest:
+        if x.isdisjoint(common):
+          sets.append(x)
+        else:
+          merged = 1
+          common |= x
+      results.append(common)
+    sets = results
+  return sets
+
+def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
+	'''
+	takes Corr Coeffs and defines regions by strength
+
+	return A: the matrix whichs entries correspond to region. 1 = strongest, 2 = second strongest...
+	'''
+	print('extracting causal precursor regions ...\n')
+
+	
+	# initialize arrays:
+	# A final return array 
+	A = np.ma.copy(Corr_Coeff)
+	#========================================
+	# STEP 1: mask nodes which were never significantly correlatated to index (= count=0)
+	#========================================
+	
+	#========================================
+	# STEP 2: define neighbors for everey node which passed Step 1
+	#========================================
+
+	indices_not_masked = np.where(A.mask==False)[0].tolist()
+
+	lo = lon_grid.shape[0]
+	la = lat_grid.shape[0]
+	
+	# create list of potential neighbors:
+	N_pot=[[] for i in range(A.shape[0])]
+
+	#=====================
+	# Criteria 1: must bei geographical neighbors:
+	#=====================
+	for i in indices_not_masked:
+		n = []	
+
+		col_i= i%lo
+		row_i = i//lo
+
+		# knoten links oben
+		if i==0:
+			n= n+[lo-1, i+1, lo ]
+
+		# knoten rechts oben	
+		elif i== lo-1:
+			n= n+[i-1, 0, i+lo]
+
+		# knoten links unten
+		elif i==(la-1)*lo:
+			n= n+ [i+lo-1, i+1, i-lo]
+
+		# knoten rechts unten
+		elif i == la*lo-1:
+			n= n+ [i-1, i-lo+1, i-lo]
+
+		# erste zeile
+		elif i<lo:
+			n= n+[i-1, i+1, i+lo]
+	
+		# letzte zeile:
+		elif i>la*lo-1:
+			n= n+[i-1, i+1, i-lo]
+	
+		# erste spalte
+		elif col_i==0:
+			n= n+[i+lo-1, i+1, i-lo, i+lo]
+	
+		# letzt spalte
+		elif col_i ==lo-1:
+			n= n+[i-1, i-lo+1, i-lo, i+lo]
+	
+		# nichts davon
+		else:
+			n = n+[i-1, i+1, i-lo, i+lo]
+	
+	#=====================
+	# Criteria 2: must be all at least once be significanlty correlated 
+	#=====================	
+		m =[]
+		for j in n:
+			if j in indices_not_masked:
+					m = m+[j]
+		
+		# now m contains the potential neighbors of gridpoint i
+
+	
+	#=====================	
+	# Criteria 3: sign must be the same for each step 
+	#=====================				
+		l=[]
+	
+		cc_i = A.data[i]
+		cc_i_sign = np.sign(cc_i)
+		
+	
+		for k in m:
+			cc_k = A.data[k]
+			cc_k_sign = np.sign(cc_k)
+		
+
+			if cc_i_sign *cc_k_sign == 1:
+				l = l +[k]
+
+			else:
+				l = l
+			
+		if len(l)==0:
+			l =[]
+			A.mask[i]=True	
+			
+		else: l = l +[i]	
+		
+		
+		N_pot[i]=N_pot[i]+ l	
+
+
+
+	#========================================	
+	# STEP 3: merge overlapping set of neighbors
+	#========================================
+	Regions = merge_neighbors(N_pot)
+	
+	#========================================
+	# STEP 4: assign a value to each region
+	#========================================
+	
+
+	# 2) combine 1A+1B 
+	B = np.abs(A)
+	
+	# 3) calculate the area size of each region	
+	
+	Area =  [[] for i in range(len(Regions))]
+	
+	for i in range(len(Regions)):
+		indices = np.array(list(Regions[i]))
+		indices_lat_position = indices//lo
+		lat_nodes = lat_grid[indices_lat_position[:]]
+		cos_nodes = np.cos(np.deg2rad(lat_nodes))		
+		
+		area_i = [np.sum(cos_nodes)]
+		Area[i]= Area[i]+area_i
+	
+	#---------------------------------------
+	# OPTIONAL: Exclude regions which only consist of less than n nodes
+	# 3a)
+	#---------------------------------------	
+	
+	R=[]
+	Ar=[]
+	for i in range(len(Regions)):
+		if len(Regions[i])>=5:
+			R.append(Regions[i])
+			Ar.append(Area[i])
+	
+	Regions = R
+	Area = Ar	
+	
+	
+	
+	# 4) calcualte region value:
+	
+	C = np.zeros(len(Regions))
+	
+	Area = np.array(Area)
+	for i in range(len(Regions)):
+		C[i]=Area[i]*np.mean(B[list(Regions[i])])
+
+
+	
+	
+	# mask out those nodes which didnot fullfill the neighborhood criterias
+	A.mask[A==0] = True	
+		
+		
+	#========================================
+	# STEP 5: rank regions by region value
+	#========================================
+	
+	# rank indices of Regions starting with strongest:
+	sorted_region_strength = np.argsort(C)[::-1]
+	
+	# give ranking number
+	# 1 = strongest..
+	# 2 = second strongest
+	
+	for i in range(len(Regions)):
+		j = list(sorted_region_strength)[i]
+		A[list(Regions[j])]=i+1
+		
+	return A	
+#	Regions = merge_neighbors(N_pot)
+A = define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid)
+
+npmap = np.ma.reshape(A, (len(lat_grid), len(lon_grid)))
+plt.imshow(npmap)
+
+

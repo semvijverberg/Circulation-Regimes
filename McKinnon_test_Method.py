@@ -191,13 +191,13 @@ for lag in lags:
     
     summerdays_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
     std_lag =  varfullreg.sel(time=summerdays_min_lag).std(dim='time')
+    varhotdays = varfullreg.sel(time=hotdates_min_lag)
     
-    varhotdays = varfullreg.sel(time=hotdates_min_lag).mean(dim='time')
+    
+    mcK_mean[idx] = varhotdays.mean(dim='time')
     
     signaltonoise = abs(varhotdays/std_lag)
     weights = signaltonoise / np.mean(signaltonoise)
-    
-    mcK_mean[idx] = varhotdays 
     
 mcK_mean.attrs['units'] = 'Kelvin (absolute values)'
 folder = os.path.join(ex['fig_path'], 'mcKinnon_mean')
@@ -223,7 +223,9 @@ for lag in lags:
     summerdays_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
     std_lag =  varfullreg.sel(time=summerdays_min_lag).std(dim='time')
     
-    varhotdays = varfullreg.sel(time=hotdates_min_lag).mean(dim='time')
+    varhotdays = varfullreg.sel(time=hotdates_min_lag)
+    
+    mcK_mean[idx] = varhotdays.mean(dim='time')
     
     signaltonoise = abs(varhotdays/std_lag)
     weights = signaltonoise / np.mean(signaltonoise)
@@ -328,6 +330,11 @@ for lag in lags:
     Composite = varfullreg.sel(time=dates_min_lag)
     summerdays_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
     totaltimeserie = varfullreg.sel(time=summerdays_min_lag)
+    
+    
+    signaltonoise = abs(Composite/std_lag)
+    weights = signaltonoise / np.mean(signaltonoise)
+    
     
     loadings = func_mcK.varimax_PCA_sem(Composite, max_comps )
     important_eofs, wmean_reof, PC_imp_abs = func_mcK.extract_pattern(Composite, 
