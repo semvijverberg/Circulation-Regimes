@@ -145,7 +145,8 @@ hotdaythreshold = mcKts.mean(dim='time').values + mcKts.std().values
 hotts = mcKts.where( mcKts.values > hotdaythreshold) 
 hotdates = hotts.dropna(how='all', dim='time').time
 hotindex = np.where( np.isnan(hotts) == False )[0]
-
+binary_events = np.zeros((hotts.shape))
+binary_events[hotindex] = 1
 
 
 
@@ -219,7 +220,10 @@ kwrgs = dict( {'vmin' : -3*mcK_mean.std().values, 'vmax' : 3*mcK_mean.std().valu
 func_mcK.finalfigure(mcK_mean, file_name, kwrgs) 
 #%%
 
-import networkx as nx
+import numpy
+sys.path.append('./../RGCPD/RGCPD/')
+import functions_RGCPD as rgcpd
+
 
 array = np.zeros( (len(lags),varsumreg.latitude.size, varsumreg.longitude.size) )
 commun_comp = xr.DataArray(data=array, coords=[lags, varsumreg.latitude, varsumreg.longitude], 
@@ -231,18 +235,30 @@ commun_num = xr.DataArray(data=array, coords=[lags, varsumreg.latitude, varsumre
 n_strongest = 7
 n_std = 1.5
 
+
+
+
+Actors_ts_GPH = [[] for i in lags] #!
+
+x = 0
 for lag in lags:
+    i = lags.index(lag)
     idx = lags.index(lag)
 
     hotdates_min_lag = matchhotdates - pd.Timedelta(int(lag), unit='d')
     
     summerdays_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
     
-#    full = varfullreg.sel(time=summerdays_min_lag)
+    full = varfullreg.sel(time=summerdays_min_lag)
     sample = varfullreg.sel(time=hotdates_min_lag)
+    var = ex['name']
+    lat_grid = full.latitude.values
+    lon_grid = full.longitude.values
+    actbox = np.reshape(full.values, (full.time.size, lat_grid.shape[0]*lon_grid.shape[0]))
+    xarray = sample
     
     def extract_commun(xarray, n_std, n_strongest):
-   
+        x=0
     #    T, pval, mask_sig = func_mcK.Welchs_t_test(sample, full, alpha=0.01)
     #    threshold = np.reshape( mask_sig, (mask_sig.size) )
     #    mask_threshold = threshold 
@@ -257,11 +273,48 @@ for lag in lags:
         Corr_Coeff = np.ma.MaskedArray(nparray, mask=mask_threshold)
         lat_grid = mean.latitude.values
         lon_grid = mean.longitude.values
+#        if Corr_Coeff.ndim == 1:
+#            lag_steps = 1
+#            n_rows = 1
+#        else:
+#            lag_steps = Corr_Coeff.shape[1]
+#            n_rows = Corr_Coeff.shape[1]
+        
+        	
+        la_gph = lat_grid.shape[0]
+        lo_gph = lon_grid.shape[0]
+        lons_gph, lats_gph = numpy.meshgrid(lon_grid, lat_grid)
+        
+        cos_box_gph = numpy.cos(numpy.deg2rad(lats_gph))
+        cos_box_gph_array = np.repeat(cos_box_gph[None,:], actbox.shape[0], 0)
+        cos_box_gph_array = np.reshape(cos_box_gph_array, (cos_box_gph_array.shape[0], -1))
     
         
-        A = func_mcK.define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid)
+        Regions_lag_i = func_mcK.define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid)
         
-        npmap = np.ma.reshape(A, (len(lat_grid), len(lon_grid)))
+        if Regions_lag_i.max()> 0:
+            n_regions_lag_i = int(Regions_lag_i.max())
+            print(('{} regions detected for lag {}, variable {}'.format(n_regions_lag_i, lag,var)))
+#        x_reg = numpy.max(Regions_lag_i)
+			
+#            levels = numpy.arange(x, x + x_reg +1)+.5
+            A_r = numpy.reshape(Regions_lag_i, (la_gph, lo_gph))
+            A_r + x
+        
+
+
+        x = A_r.max() 
+
+        # this array will be the time series for each region
+        ts_regions_lag_i = np.zeros((actbox.shape[0], n_regions_lag_i))
+				
+        for j in range(n_regions_lag_i):
+            B = np.zeros(Regions_lag_i.shape)
+            B[Regions_lag_i == j+1] = 1	
+            ts_regions_lag_i[:,j] = np.mean(actbox[:, B == 1] * cos_box_gph_array[:, B == 1], axis =1)
+        
+        
+        npmap = np.ma.reshape(Regions_lag_i, (len(lat_grid), len(lon_grid)))
         mask_strongest = (npmap!=0.) & (npmap < n_strongest)
         npmap[mask_strongest==False] = 0
 #        plt.imshow(npmap)
@@ -274,8 +327,8 @@ for lag in lags:
         mean = mean.where(mean.mask==True)
         xrnpmap = xrnpmap.where(xrnpmap.mask==True)
         
-        return mean, xrnpmap
-    commun_mean, commun_numbered = extract_commun(sample, n_std, n_strongest)  
+        return mean, xrnpmap, ts_regions_lag_i
+    commun_mean, commun_numbered, ts_regions_lag_i = extract_commun(sample, n_std, n_strongest)  
     commun_comp[idx] = commun_mean
     commun_num[idx]  = commun_numbered
 #    print(commun_mean.max(), commun_numbered.max())
@@ -316,6 +369,11 @@ plotting_wrapper(commun_num, foldername, kwrgs=kwrgs)
 from sklearn.linear_model import LogisticRegression
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
+X = np.swapaxes(ts_regions_lag_i, 1,0)
+X = ts_regions_lag_i
+y = binary_events
 X_train, X_test, y_train, y_test = train_test_split(
                                     X, y, test_size=0.33, random_state=42)
-build_training_vector
+
+
+
