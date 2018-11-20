@@ -185,26 +185,27 @@ varhotdays = varfullreg.sel(time=matchhotdates)
 #    func_mcK.xarray_plot(varfullreg.sel(time=day)) 
 
 #%% Mean over 230 hot days
-#lags = [20, 30, 40, 50]
+lags = [30, 40, 50, 60]
 #lags = [0, 5]
-lags = [0, 50]
-
-array = np.zeros( (len(lags),varsumreg.latitude.size, varsumreg.longitude.size) )
-mcK_mean = xr.DataArray(data=array, coords=[lags, varsumreg.latitude, varsumreg.longitude], 
+#lags = [10, 50]
+varfullregmcK = func_mcK.find_region(varfselreg, region='PEPrectangle')[0]
+array = np.zeros( (len(lags),varfullregmcK.latitude.size, varfullregmcK.longitude.size) )
+mcK_mean = xr.DataArray(data=array, coords=[lags, varfullregmcK.latitude, varfullregmcK.longitude], 
                       dims=['lag','latitude','longitude'], name='McK_Composite_diff_lags')
 for lag in lags:
     idx = lags.index(lag)
     hotdates_min_lag = matchhotdates - pd.Timedelta(int(lag), unit='d')
-    
     summerdays_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
-    std_lag =  varfullreg.sel(time=summerdays_min_lag).std(dim='time')
     
-    varhotdays = varfullreg.sel(time=hotdates_min_lag).mean(dim='time')
+    std_lag =  varfullregmcK.sel(time=summerdays_min_lag).std(dim='time')
+    varhotdays = varfullregmcK.sel(time=hotdates_min_lag).mean(dim='time')
+    mcK_mean[idx] = varhotdays 
+    
     
     signaltonoise = abs(varhotdays/std_lag)
     weights = signaltonoise / np.mean(signaltonoise)
     
-    mcK_mean[idx] = varhotdays 
+
     
 mcK_mean.attrs['units'] = 'Kelvin (absolute values)'
 folder = os.path.join(ex['fig_path'], 'mcKinnon_mean')
@@ -229,10 +230,11 @@ array = np.zeros( (len(lags),varsumreg.latitude.size, varsumreg.longitude.size) 
 commun_comp = xr.DataArray(data=array, coords=[lags, varsumreg.latitude, varsumreg.longitude], 
                       dims=['lag','latitude','longitude'], name='communities_composite', 
                       attrs={'units':'Kelvin'})
+array = np.zeros( (len(lags),varsumreg.latitude.size, varsumreg.longitude.size) )
 commun_num = xr.DataArray(data=array, coords=[lags, varsumreg.latitude, varsumreg.longitude], 
                       dims=['lag','latitude','longitude'], name='communities_numbered', 
                       attrs={'units':'regions'})
-n_strongest = 7
+n_strongest = 20
 n_std = 1.5
 
 
@@ -294,8 +296,8 @@ for lag in lags:
         
         if Regions_lag_i.max()> 0:
             n_regions_lag_i = int(Regions_lag_i.max())
-            print(('{} regions detected for lag {}, variable {}'.format(n_regions_lag_i, lag,var)))
-#        x_reg = numpy.max(Regions_lag_i)
+#            print(('{} regions detected for lag {}, variable {}'.format(n_regions_lag_i, lag,var)))
+#            x_reg = numpy.max(Regions_lag_i)
 			
 #            levels = numpy.arange(x, x + x_reg +1)+.5
             A_r = numpy.reshape(Regions_lag_i, (la_gph, lo_gph))
@@ -306,36 +308,54 @@ for lag in lags:
         x = A_r.max() 
 
         # this array will be the time series for each region
-        ts_regions_lag_i = np.zeros((actbox.shape[0], n_regions_lag_i))
+        if n_regions_lag_i < n_strongest:
+            n_strongest = n_regions_lag_i
+        ts_regions_lag_i = np.zeros((actbox.shape[0], n_strongest))
 				
-        for j in range(n_regions_lag_i):
+        for j in range(n_strongest):
             B = np.zeros(Regions_lag_i.shape)
             B[Regions_lag_i == j+1] = 1	
             ts_regions_lag_i[:,j] = np.mean(actbox[:, B == 1] * cos_box_gph_array[:, B == 1], axis =1)
         
         
+        # creating arrays of output
         npmap = np.ma.reshape(Regions_lag_i, (len(lat_grid), len(lon_grid)))
-        mask_strongest = (npmap!=0.) & (npmap < n_strongest)
+        mask_strongest = (npmap!=0.) & (npmap <= n_strongest)
         npmap[mask_strongest==False] = 0
-#        plt.imshow(npmap)
         xrnpmap = mean.copy()
         xrnpmap.values = npmap
         
         mask = (('latitude', 'longitude'), mask_strongest)
         mean.coords['mask'] = mask
         xrnpmap.coords['mask'] = mask
-        mean = mean.where(mean.mask==True)
         xrnpmap = xrnpmap.where(xrnpmap.mask==True)
+        # normal mean of extracted regions
+        norm_mean = mean.where(mean.mask==True)
         
-        return mean, xrnpmap, ts_regions_lag_i
+        coeff_features = func_mcK.train_weights_LogReg(ts_regions_lag_i, binary_events)
+        features = np.arange(xrnpmap.min(), xrnpmap.max() + 1 ) 
+        weights = npmap.copy()
+        for f in features:
+            mask_single_feature = (npmap==f)
+            weight = int(round(coeff_features[int(f-1)], 2) * 100)
+            np.place(arr=weights, mask=mask_single_feature, vals=weight)
+        
+
+        weighted_mean = norm_mean * abs(weights)
+        
+        
+        
+        return weighted_mean, xrnpmap, ts_regions_lag_i
     commun_mean, commun_numbered, ts_regions_lag_i = extract_commun(sample, n_std, n_strongest)  
     commun_comp[idx] = commun_mean
     commun_num[idx]  = commun_numbered
+    
+    
 #    print(commun_mean.max(), commun_numbered.max())
 
     
 
-    print(commun_comp[idx].max().values, commun_num[idx].max().values)
+#    print(commun_comp[idx].max().values, commun_num[idx].max().values)
 
     
 
@@ -365,15 +385,25 @@ kwrgs = dict( {'vmin' : 0, 'vmax' : n_strongest,
                    'map_proj' : map_proj, 'cmap' : plt.cm.Dark2, 'column' : 2} )
 plotting_wrapper(commun_num, foldername, kwrgs=kwrgs)
 
-#%%
-from sklearn.linear_model import LogisticRegression
-from sklearn.datasets import load_iris
-from sklearn.model_selection import train_test_split
-X = np.swapaxes(ts_regions_lag_i, 1,0)
-X = ts_regions_lag_i
-y = binary_events
-X_train, X_test, y_train, y_test = train_test_split(
-                                    X, y, test_size=0.33, random_state=42)
+plotting_wrapper(commun_comp, foldername)
 
+#%%
+
+for lag in lags:
+    idx = lags.index(lag)
+
+    # select antecedant SST pattern to summer days:
+    dates_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
+    full_timeserie_regmck = varfullregmcK.sel(time=dates_min_lag)
+    full_timeserie = varfullreg.sel(time=dates_min_lag)
+    
+    crosscorr_mcK = func_mcK.cross_correlation_patterns(full_timeserie_regmck, mcK_mean.sel(lag=lag))
+    crosscorr_Sem = func_mcK.cross_correlation_patterns(full_timeserie, commun_comp.sel(lag=lag))
+    
+    ROC_mcK, ROC_boot_mcK = ROC_score(predictions=crosscorr_mcK, observed=mcKts, threshold_event=hotdaythreshold, lag=lag)
+    ROC_Sem, ROC_boot_Sem = ROC_score(predictions=crosscorr_Sem, observed=mcKts, threshold_event=hotdaythreshold, lag=lag)
+    print('\n*** ROC score for {} lag {} ***\n\nMck {:.2f} \t Sem {:.2f}'.format(region, 
+          lag, ROC_mcK, ROC_Sem))
+          
 
 

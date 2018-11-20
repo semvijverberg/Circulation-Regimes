@@ -367,43 +367,6 @@ plotting_loads_wrapper(loadings, foldername)
 
 
 
-#%%
-def cross_correlation_patterns(full_timeserie, pattern):
-#    full_timeserie = precursor
-    
-    n_time = full_timeserie.time.size
-    n_space = pattern.size
-    
-    full_ts = np.nan_to_num(np.reshape( full_timeserie.values, (n_time, n_space) ))
-    pattern = np.nan_to_num(np.reshape( pattern.values, (n_space) ))
-    crosscorr = np.zeros( (n_time) )
-    spatcov   = np.zeros( (n_time) )
-    covself   = np.zeros( (n_time) )
-    corrself  = np.zeros( (n_time) )
-    for t in range(n_time):
-        # Corr(X,Y) = cov(X,Y) / ( std(X)*std(Y) )
-        # cov(X,Y) = E( (x_i - mu_x) * (y_i - mu_y) )
-        crosscorr[t] = np.correlate(full_ts[t], pattern)
-        M = np.stack( (full_ts[t], pattern) )
-        
-        covself[t] = np.mean( (full_ts[t] - np.mean(full_ts[t])) * (pattern - np.mean(pattern)) )
-        corrself[t] = covself[t] / (np.std(full_ts[t]) * np.std(pattern))
-        
-        
-        spatcov[t] = np.cov(M)[0,1] #/ (np.sqrt(np.cov(M)[0,0]) * np.sqrt(np.cov(M)[1,1]))
-#        sqrt( Var(X) ) = sigma_x = std(X)
-#        spatcov[t] = np.cov(M)[0,1] / (np.std(full_ts[t]) * np.std(pattern))
-
-        
-
-#    plt.plot(crosscorr)
-#    plt.figure()
-#    plt.plot(spatcov) #/ np.std(spatcov))
-#    plt.figure()
-#    plt.plot(covself) #/ np.std(spatcov))
-#    plt.figure()
-#    plt.plot(corrself) #/ np.std(spatcov))
-    return covself
 
 
 #%%
@@ -416,9 +379,9 @@ for lag in lags:
     # select antecedant SST pattern to summer days:
     dates_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
     full_timeserie = varfullreg.sel(time=dates_min_lag)
-    crosscorr_mcK = cross_correlation_patterns(full_timeserie, mcK_mean.sel(lag=lag)/mcK_mean.sel(lag=lag).std())
-    crosscorr_mcK_w = cross_correlation_patterns(full_timeserie, mcK_mean_w.sel(lag=lag)/mcK_mean_w.sel(lag=lag).std())
-    crosscorr_we = cross_correlation_patterns(full_timeserie, w_eofs.sel(lag=lag)/w_eofs.sel(lag=lag).std())
+    crosscorr_mcK = func_mcK.cross_correlation_patterns(full_timeserie, mcK_mean.sel(lag=lag)/mcK_mean.sel(lag=lag).std())
+    crosscorr_mcK_w = func_mcK.cross_correlation_patterns(full_timeserie, mcK_mean_w.sel(lag=lag)/mcK_mean_w.sel(lag=lag).std())
+    crosscorr_we = func_mcK.cross_correlation_patterns(full_timeserie, w_eofs.sel(lag=lag)/w_eofs.sel(lag=lag).std())
     if lag == lags[-1]:
         
         # shuffling observation:

@@ -817,3 +817,63 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
         A[list(Regions[j])]=i+1
 		
     return np.array(A, dtype=int)
+
+def train_weights_LogReg(ts_regions_lag_i, binary_events):
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.model_selection import train_test_split
+    X = np.swapaxes(ts_regions_lag_i, 1,0)
+    X = ts_regions_lag_i
+    y = binary_events
+    X_train, X_test, y_train, y_test = train_test_split(
+                                        X, y, test_size=0.33)
+    
+#    Log_out = LogisticRegression(random_state=0, penalty = 'l2', solver='saga',
+#                       tol = 1E-9, multi_class='ovr').fit(X_train, y_train)
+#    print(Log_out.score(X_train, y_train))
+#    print(Log_out.score(X_test, y_test))
+    
+    from sklearn.linear_model import LogisticRegressionCV
+    Log_out = LogisticRegressionCV(random_state=0, penalty = 'l2', solver='saga',
+                       tol = 1E-9, multi_class='ovr').fit(X_train, y_train)
+#    print(Log_out.score(X_train, y_train))
+#    print(Log_out.score(X_test, y_test))
+    
+    
+    coeff_features = Log_out.coef_
+    # predictions score of test 
+    # score untrained:
+    score_on_trained = Log_out.score(X_train, y_train)
+    score_untrained = Log_out.score(X_test/Log_out.coef_, y_test)
+    score = Log_out.score(X_test, y_test)
+    print('\nPredictions score using \n'
+          '\ttestdata fit {}\n'.format(score),
+          '\ttestdata normal {}\n'.format(score_untrained),
+          '\ttraindata fit {}\n'.format(score_on_trained))
+  
+    return np.squeeze(coeff_features)
+
+def cross_correlation_patterns(full_timeserie, pattern):
+#    full_timeserie = precursor
+    
+    n_time = full_timeserie.time.size
+    n_space = pattern.size
+    
+    full_ts = np.nan_to_num(np.reshape( full_timeserie.values, (n_time, n_space) ))
+    pattern = np.nan_to_num(np.reshape( pattern.values, (n_space) ))
+    crosscorr = np.zeros( (n_time) )
+    spatcov   = np.zeros( (n_time) )
+    covself   = np.zeros( (n_time) )
+    corrself  = np.zeros( (n_time) )
+    for t in range(n_time):
+        # Corr(X,Y) = cov(X,Y) / ( std(X)*std(Y) )
+        # cov(X,Y) = E( (x_i - mu_x) * (y_i - mu_y) )
+        crosscorr[t] = np.correlate(full_ts[t], pattern)
+        M = np.stack( (full_ts[t], pattern) )
+        spatcov[t] = np.cov(M)[0,1] #/ (np.sqrt(np.cov(M)[0,0]) * np.sqrt(np.cov(M)[1,1]))
+#        sqrt( Var(X) ) = sigma_x = std(X)
+#        spatcov[t] = np.cov(M)[0,1] / (np.std(full_ts[t]) * np.std(pattern))        
+        covself[t] = np.mean( (full_ts[t] - np.mean(full_ts[t])) * (pattern - np.mean(pattern)) )
+        corrself[t] = covself[t] / (np.std(full_ts[t]) * np.std(pattern))
+    return covself
+
+
