@@ -93,41 +93,14 @@ if ex['name']=='sst':
 
 #%%
 # take means over bins over tfreq days
-ex['tfreq'] = 1 
+ex['tfreq'] = 1
 mcKts, datesmcK = func_mcK.time_mean_bins(mcKts, ex)
 
 def oneyr(datetime):
     return datetime.where(datetime.year==datetime.year[300]).dropna()
 
 datetime = datesmcK
-
-def expand_times_for_lags(datesmcK, ex):
-    expanded_time = []
-    for yr in set(datetime.year):
-        one_yr = datetime.where(datetime.year == yr).dropna(how='any')
-        start_mcK = one_yr[0]
-        #start day shifted half a time step
-        half_step = ex['tfreq']/2.
-#        origshift = np.arange(half_step, datetime.size, ex['tfreq'], dtype=int)
-        start_mcK = start_mcK - np.timedelta64(int(half_step+0.49), 'D')
-        last_day = '{}{}'.format(yr, ex['senddate'][4:])
-        end_mcK   = pd.to_datetime(last_day)
-#        adj_year = pd.DatetimeIndex(start=start_mcK, end=end_mcK, 
-#                                    freq=(datetime[1] - datetime[0]), 
-#                                    closed = None).values
-        steps = len(one_yr)
-        shift_start = start_mcK - (steps) * np.timedelta64(ex['tfreq'], 'D')
-        adj_year = pd.DatetimeIndex(start=shift_start, end=end_mcK, 
-                                    freq=pd.Timedelta( '1 days'), 
-                                    closed = None).values
-        [expanded_time.append(date) for date in adj_year]
-    
-    return pd.to_datetime(expanded_time)
-
-
-
-
-expanded_time = expand_times_for_lags(datesmcK, ex)
+expanded_time = func_mcK.expand_times_for_lags(datesmcK, ex)
 # Converting Mckinnon timestemp to match xarray timestemp
 expandeddaysmcK = func_mcK.to_datesmcK(expanded_time, expanded_time[0].hour, varfullgl.time[0].dt.hour)
 # region mckinnon - full time series
@@ -149,16 +122,13 @@ binary_events = np.zeros((hotts.shape))
 binary_events[hotindex] = 1
 
 
-
 ## plotting same figure as in paper
-
 year2012 = mcKts.where(mcKts.time.dt.year == 2012).dropna(dim='time', how='any')
 plotpaper = mcKts.sel(time=pd.DatetimeIndex(start=year2012.time.values[0], 
                                             end=year2012.time.values[-1], 
                                             freq=(datesmcK[1] - datesmcK[0])))
 #plotpaper = mcKtsfull.sel(time=pd.DatetimeIndex(start='2012-06-23', end='2012-08-21', 
 #                                freq=(datesmcK[1] - datesmcK[0])))
-
 plotpaperhotdays = plotpaper.where( plotpaper.values > hotdaythreshold) 
 plotpaperhotdays = plotpaperhotdays.dropna(how='all', dim='time').time
 plt.figure()
@@ -167,38 +137,42 @@ plt.axhline(y=hotdaythreshold)
 for days in plotpaperhotdays.time.values:
     plt.axvline(x=days)
 
-
-
-
-
-
-std = varfullreg.std(dim='time')
 # not merging hot days which happen consequtively
-
 matchhotdates = func_mcK.to_datesmcK(hotdates, hotdates[0].dt.hour, varfullreg.time[0].dt.hour)
-# Select concurrent hot days
-varhotdays = varfullreg.sel(time=matchhotdates)
 
-#matchpaperplothotdates = func_mcK.to_datesmcK(plotpaperhotdays.time, hotdates[0].dt.hour, varhotdays.time[0].dt.hour)
-#test = varhotdays.sel(time=matchpaperplothotdates[:5])
-#for day in matchpaperplothotdates[:5]:
-#    func_mcK.xarray_plot(varfullreg.sel(time=day)) 
+
+#%% Divide into train and validation step
+
+end_train = ex['startyear'] + int((ex['endyear'] - ex['startyear'])*0.66)
+
+dates_train = matchdaysmcK.where(matchdaysmcK.time.dt.year < end_train).dropna(
+        how='all', dim='time')
+dates_test = matchdaysmcK.where(matchdaysmcK.time.dt.year >= end_train).dropna(
+        how='all', dim='time')
+var_train = varfullreg.where(varfullreg.time.dt.year < end_train).dropna(
+        how='all', dim='time')
+event_train = matchhotdates.where(matchhotdates.time.dt.year < end_train).dropna(
+        how='all', dim='time')
+var_test = varfullreg.where(varfullreg.time.dt.year >= end_train).dropna(
+        how='all', dim='time')
+event_test = matchhotdates.where(matchhotdates.time.dt.year >= end_train).dropna(
+        how='all', dim='time')
 
 #%% Mean over 230 hot days
 lags = [30, 40, 50, 60]
 #lags = [0, 5]
 #lags = [10, 50]
-varfullregmcK = func_mcK.find_region(varfselreg, region='PEPrectangle')[0]
-array = np.zeros( (len(lags),varfullregmcK.latitude.size, varfullregmcK.longitude.size) )
-mcK_mean = xr.DataArray(data=array, coords=[lags, varfullregmcK.latitude, varfullregmcK.longitude], 
+var_train_mcK = func_mcK.find_region(var_train, region='PEPrectangle')[0]
+array = np.zeros( (len(lags),var_train_mcK.latitude.size, var_train_mcK.longitude.size) )
+mcK_mean = xr.DataArray(data=array, coords=[lags, var_train_mcK.latitude, var_train_mcK.longitude], 
                       dims=['lag','latitude','longitude'], name='McK_Composite_diff_lags')
 for lag in lags:
     idx = lags.index(lag)
-    hotdates_min_lag = matchhotdates - pd.Timedelta(int(lag), unit='d')
-    summerdays_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
+    events_min_lag = event_train - pd.Timedelta(int(lag), unit='d')
+    dates_train_min_lag = dates_train - pd.Timedelta(int(lag), unit='d')
     
-    std_lag =  varfullregmcK.sel(time=summerdays_min_lag).std(dim='time')
-    varhotdays = varfullregmcK.sel(time=hotdates_min_lag).mean(dim='time')
+    std_lag =  var_train_mcK.sel(time=dates_train_min_lag).std(dim='time')
+    varhotdays = var_train_mcK.sel(time=events_min_lag).mean(dim='time')
     mcK_mean[idx] = varhotdays 
     
     
@@ -247,19 +221,23 @@ for lag in lags:
     i = lags.index(lag)
     idx = lags.index(lag)
 
-    hotdates_min_lag = matchhotdates - pd.Timedelta(int(lag), unit='d')
+    events_min_lag = event_train - pd.Timedelta(int(lag), unit='d')
     
-    summerdays_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
+    dates_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
     
-    full = varfullreg.sel(time=summerdays_min_lag)
-    sample = varfullreg.sel(time=hotdates_min_lag)
+    event_idx = [list(matchdaysmcK.values).index(E) for E in matchhotdates.values]
+    event_binary = np.zeros(matchdaysmcK.size)    
+    event_binary[event_idx] = 1
+    
+    full = varfullreg.sel(time=dates_min_lag)
+    sample = var_train.sel(time=events_min_lag)
     var = ex['name']
     lat_grid = full.latitude.values
     lon_grid = full.longitude.values
     actbox = np.reshape(full.values, (full.time.size, lat_grid.shape[0]*lon_grid.shape[0]))
     xarray = sample
     
-    def extract_commun(xarray, n_std, n_strongest):
+    def extract_commun(xarray, event_binary, n_std, n_strongest):
         x=0
     #    T, pval, mask_sig = func_mcK.Welchs_t_test(sample, full, alpha=0.01)
     #    threshold = np.reshape( mask_sig, (mask_sig.size) )
@@ -269,7 +247,7 @@ for lag in lags:
         mean = xarray.mean(dim='time')
         nparray = np.reshape(np.nan_to_num(mean.values), mean.size)
         
-        threshold = 1.5 * np.std(nparray)
+        threshold = n_std * np.std(nparray)
         mask_threshold = abs(nparray) < ( threshold )
         
         Corr_Coeff = np.ma.MaskedArray(nparray, mask=mask_threshold)
@@ -332,13 +310,14 @@ for lag in lags:
         # normal mean of extracted regions
         norm_mean = mean.where(mean.mask==True)
         
-        coeff_features = func_mcK.train_weights_LogReg(ts_regions_lag_i, binary_events)
+        coeff_features = func_mcK.train_weights_LogReg(ts_regions_lag_i, event_binary)
         features = np.arange(xrnpmap.min(), xrnpmap.max() + 1 ) 
         weights = npmap.copy()
         for f in features:
             mask_single_feature = (npmap==f)
             weight = int(round(coeff_features[int(f-1)], 2) * 100)
             np.place(arr=weights, mask=mask_single_feature, vals=weight)
+#            weights = weights/weights.max()
         
 
         weighted_mean = norm_mean * abs(weights)
@@ -346,7 +325,8 @@ for lag in lags:
         
         
         return weighted_mean, xrnpmap, ts_regions_lag_i
-    commun_mean, commun_numbered, ts_regions_lag_i = extract_commun(sample, n_std, n_strongest)  
+    commun_mean, commun_numbered, ts_regions_lag_i = extract_commun(
+                                    sample, event_binary, n_std, n_strongest)  
     commun_comp[idx] = commun_mean
     commun_num[idx]  = commun_numbered
     
@@ -402,8 +382,10 @@ for lag in lags:
     
     ROC_mcK, ROC_boot_mcK = ROC_score(predictions=crosscorr_mcK, observed=mcKts, threshold_event=hotdaythreshold, lag=lag)
     ROC_Sem, ROC_boot_Sem = ROC_score(predictions=crosscorr_Sem, observed=mcKts, threshold_event=hotdaythreshold, lag=lag)
-    print('\n*** ROC score for {} lag {} ***\n\nMck {:.2f} \t Sem {:.2f}'.format(region, 
-          lag, ROC_mcK, ROC_Sem))
+    ROC_std = 2 * np.std([ROC_boot_mcK, ROC_boot_Sem])
+    print('\n*** ROC score for {} lag {} ***\n\nMck {:.2f} \t Sem {:.2f} '
+        '\t ±{:.2f} 2*std random events'.format(region, 
+          lag, ROC_mcK, ROC_Sem, ROC_std))
           
 
 

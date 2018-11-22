@@ -145,6 +145,29 @@ def time_mean_bins(xarray, ex):
     dates = pd.to_datetime(newdate.values)
     return group_bins.rename({'bins' : 'time'}), dates
 
+def expand_times_for_lags(datetime, ex):
+    expanded_time = []
+    for yr in set(datetime.year):
+        one_yr = datetime.where(datetime.year == yr).dropna(how='any')
+        start_mcK = one_yr[0]
+        #start day shifted half a time step
+        half_step = ex['tfreq']/2.
+#        origshift = np.arange(half_step, datetime.size, ex['tfreq'], dtype=int)
+        start_mcK = start_mcK - np.timedelta64(int(half_step+0.49), 'D')
+        last_day = '{}{}'.format(yr, ex['senddate'][4:])
+        end_mcK   = pd.to_datetime(last_day)
+#        adj_year = pd.DatetimeIndex(start=start_mcK, end=end_mcK, 
+#                                    freq=(datetime[1] - datetime[0]), 
+#                                    closed = None).values
+        steps = len(one_yr)
+        shift_start = start_mcK - (steps) * np.timedelta64(ex['tfreq'], 'D')
+        adj_year = pd.DatetimeIndex(start=shift_start, end=end_mcK, 
+                                    freq=pd.Timedelta( '1 days'), 
+                                    closed = None).values
+        [expanded_time.append(date) for date in adj_year]
+    
+    return pd.to_datetime(expanded_time)
+
 def make_datestr(dates, ex):
     start_yr = pd.DatetimeIndex(start=ex['sstartdate'], end=ex['senddate'], 
                                 freq=(dates[1] - dates[0]))
@@ -283,7 +306,7 @@ def convert_longitude(data):
 def to_datesmcK(datesmcK, to_hour, from_hour):
     dt_hours = to_hour + from_hour
     matchdaysmcK = datesmcK + pd.Timedelta(int(dt_hours), unit='h')
-    return matchdaysmcK
+    return xr.DataArray(matchdaysmcK, dims=['time'])
 
 def find_region(data, region='Mckinnonplot'):
     if region == 'Mckinnonplot':
@@ -834,7 +857,8 @@ def train_weights_LogReg(ts_regions_lag_i, binary_events):
     
     from sklearn.linear_model import LogisticRegressionCV
     Log_out = LogisticRegressionCV(random_state=0, penalty = 'l2', solver='saga',
-                       tol = 1E-9, multi_class='ovr').fit(X_train, y_train)
+                       tol = 1E-9, multi_class='ovr', max_iter=2000).fit(
+                               X_train, y_train)
 #    print(Log_out.score(X_train, y_train))
 #    print(Log_out.score(X_test, y_test))
     
