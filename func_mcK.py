@@ -653,7 +653,7 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 
 	return A: the matrix whichs entries correspond to region. 1 = strongest, 2 = second strongest...
     '''
-    print('extracting features ...\n')
+#    print('extracting features ...\n')
 
 	
 	# initialize arrays:
@@ -857,7 +857,7 @@ def train_weights_LogReg(ts_regions_lag_i, binary_events):
     
     from sklearn.linear_model import LogisticRegressionCV
     Log_out = LogisticRegressionCV(random_state=0, penalty = 'l2', solver='saga',
-                       tol = 1E-9, multi_class='ovr', max_iter=2000).fit(
+                       tol = 1E-9, multi_class='ovr', max_iter=4000).fit(
                                X_train, y_train)
 #    print(Log_out.score(X_train, y_train))
 #    print(Log_out.score(X_test, y_test))
@@ -866,13 +866,13 @@ def train_weights_LogReg(ts_regions_lag_i, binary_events):
     coeff_features = Log_out.coef_
     # predictions score of test 
     # score untrained:
-    score_on_trained = Log_out.score(X_train, y_train)
-    score_untrained = Log_out.score(X_test/Log_out.coef_, y_test)
-    score = Log_out.score(X_test, y_test)
-    print('\nPredictions score using \n'
-          '\ttestdata fit {}\n'.format(score),
-          '\ttestdata normal {}\n'.format(score_untrained),
-          '\ttraindata fit {}\n'.format(score_on_trained))
+#    score_on_trained = Log_out.score(X_train, y_train)
+#    score_untrained = Log_out.score(X_test/Log_out.coef_, y_test)
+#    score = Log_out.score(X_test, y_test)
+#    print('\nPredictions score using \n'
+#          '\ttestdata fit {}\n'.format(score),
+#          '\ttestdata normal {}\n'.format(score_untrained),
+#          '\ttraindata fit {}\n'.format(score_on_trained))
   
     return np.squeeze(coeff_features)
 
