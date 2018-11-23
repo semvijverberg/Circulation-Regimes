@@ -976,13 +976,13 @@ def extract_precursor(Prec_train, RV_train, ex, hotdaythreshold, lags, n_std, n_
     return commun_comp, commun_num
 
 def train_weights_LogReg(ts_regions_lag_i, binary_events):
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.model_selection import train_test_split
-    X = np.swapaxes(ts_regions_lag_i, 1,0)
-    X = ts_regions_lag_i
-    y = binary_events
-    X_train, X_test, y_train, y_test = train_test_split(
-                                        X, y, test_size=0.33)
+#    from sklearn.linear_model import LogisticRegression
+#    from sklearn.model_selection import train_test_split
+#    X = np.swapaxes(ts_regions_lag_i, 1,0)
+    X_train = ts_regions_lag_i
+    y_train = binary_events
+#    X_train, X_test, y_train, y_test = train_test_split(
+#                                        X, y, test_size=0.33)
     
 #    Log_out = LogisticRegression(random_state=0, penalty = 'l2', solver='saga',
 #                       tol = 1E-9, multi_class='ovr').fit(X_train, y_train)
@@ -1036,19 +1036,27 @@ def cross_correlation_patterns(full_timeserie, pattern):
     covself = xr.DataArray(covself, coords=[dates_test.values], dims=['time'])
     return covself
 
-def plot_events_validation(pred, obs, pthreshold, othreshold, test_year):
+def plot_events_validation(pred, obs, pthreshold, othreshold, test_year=None):
     #%%
 #    pred = crosscorr_Sem
 #    obs = RV_ts_test
 #    pthreshold = Prec_threshold
 #    othreshold = hotdaythreshold
-#    test_year = 1983
+#    test_year = [2000,2003]
     
-    
-    predyear = pred.where(pred.time.dt.year == test_year).dropna(dim='time', how='any')
-    predyear['time'] = obs.time
-    obsyear  = obs.where(obs.time.dt.year == test_year).dropna(dim='time', how='any')
-    
+    if type(test_year) == type(int(0)):
+        predyear = pred.where(pred.time.dt.year == test_year).dropna(dim='time', how='any')
+        predyear['time'] = obs.time
+        obsyear  = obs.where(obs.time.dt.year == test_year).dropna(dim='time', how='any')
+    elif type(test_year) == type([]):
+        years_in_obs = list(obs.time.dt.year.values)
+        test_years = [i for i in range(len(years_in_obs)) if years_in_obs[i] in test_year]
+        predyear = pred.isel(time=test_years)
+        obsyear = obs.isel(time=test_years)
+    else:
+        predyear = pred
+        predyear['time'] = obs.time
+        obsyear = obs
     eventdays = obsyear.where( obsyear.values > othreshold) 
     eventdays = eventdays.dropna(how='all', dim='time').time
     
@@ -1058,14 +1066,14 @@ def plot_events_validation(pred, obs, pthreshold, othreshold, test_year):
     TP = [day for day in preddays.time.values if day in list(eventdays.values)]
     
     predyearscaled = (predyear - pred.mean()) * obsyear.std()/predyear.std() 
-    plt.figure()
+    plt.figure(figsize = (10,5))
     plt.plot(pd.to_datetime(obsyear.time.values),obsyear)
     plt.plot(pd.to_datetime(obsyear.time.values),predyearscaled)
 
     plt.axhline(y=othreshold)
     for days in eventdays.time.values:
-        plt.axvline(x=pd.to_datetime(days), color='blue', alpha=0.5)
+        plt.axvline(x=pd.to_datetime(days), color='blue', alpha=0.3)
     for days in preddays.time.values:
-        plt.axvline(x=pd.to_datetime(days), color='orange', alpha=0.5)
+        plt.axvline(x=pd.to_datetime(days), color='red', alpha=0.3)
     for days in pd.to_datetime(TP):
         plt.axvline(x=pd.to_datetime(days), color='green', alpha=1.)

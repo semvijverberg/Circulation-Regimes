@@ -265,7 +265,7 @@ for n in range(30):
         Prec_threshold = (crosscorr_Sem.mean() + np.std(crosscorr_Sem)).values
         Prec_det_Sem = (func_mcK.Ev_timeseries(crosscorr_Sem, Prec_threshold).size > min_detection)
         
-        func_mcK.plot_events_validation(crosscorr_Sem, RV_test, Prec_threshold, 
+        func_mcK.plot_events_validation(crosscorr_Sem, RV_ts_test, Prec_threshold, 
                                         hotdaythreshold, test_year)
 
         
@@ -304,29 +304,36 @@ for n in range(30):
             
 
 #%%        
-#for lag in lags:
-#    idx = lags.index(lag)
-#
-#    # select antecedant SST pattern to summer days:
-#    dates_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
-#    var_test_mcK = func_mcK.find_region(Prec_reg, region='PEPrectangle')[0]
-#    full_timeserie_regmck = var_test_mcK.sel(time=dates_min_lag)
-#    full_timeserie = Prec_reg.sel(time=dates_min_lag)
-#    
-#    # select test event predictand series
-#    RV_ts_test = mcKts
-#    crosscorr_mcK = func_mcK.cross_correlation_patterns(full_timeserie_regmck, 
-#                                                        mcK_mean.sel(lag=lag))
-#    crosscorr_Sem = func_mcK.cross_correlation_patterns(full_timeserie, 
-#                                                        commun_comp.sel(lag=lag))
-#    
-#    ROC_mcK, ROC_boot_mcK = ROC_score(predictions=crosscorr_mcK, 
-#                                      observed=RV_ts_test, threshold_event=hotdaythreshold, lag=lag)
-#    ROC_Sem, ROC_boot_Sem = ROC_score(predictions=crosscorr_Sem, 
-#                                      observed=RV_ts_test, threshold_event=hotdaythreshold, lag=lag)
-#    ROC_std = 2 * np.std([ROC_boot_mcK, ROC_boot_Sem])
-#    print('\n*** ROC score for {} lag {} ***\n\nMck {:.2f} \t Sem {:.2f} '
-#        '\t ±{:.2f} 2*std random events'.format(region, 
-#          lag, ROC_mcK, ROC_Sem, ROC_std))
-#          
+for lag in lags:
+    idx = lags.index(lag)
 
+    # select antecedant SST pattern to summer days:
+    dates_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
+    var_full_mcK = func_mcK.find_region(Prec_reg, region='PEPrectangle')[0]
+    full_timeserie_regmck = var_full_mcK.sel(time=dates_min_lag)
+    full_timeserie = Prec_reg.sel(time=dates_min_lag)
+    
+    # select test event predictand series
+    RV_ts_test = mcKts
+    crosscorr_mcK = func_mcK.cross_correlation_patterns(full_timeserie_regmck, 
+                                                        mcK_mean.sel(lag=lag))
+    crosscorr_Sem = func_mcK.cross_correlation_patterns(full_timeserie, 
+                                                        commun_comp.sel(lag=lag))
+    n_boot = 5
+    ROC_mcK, ROC_boot_mcK = ROC_score(crosscorr_mcK, RV_ts_test,
+                                  hotdaythreshold, lag, n_boot)
+    ROC_Sem, ROC_boot_Sem = ROC_score(crosscorr_Sem, RV_ts_test,
+                                  hotdaythreshold, lag, n_boot)
+    ROC_std = 2 * np.std([ROC_boot_mcK, ROC_boot_Sem])
+    print('\n*** ROC score for {} lag {} ***\n\nMck {:.2f} \t Sem {:.2f} '
+        '\t ±{:.2f} 2*std random events'.format(region, 
+          lag, ROC_mcK, ROC_Sem, ROC_std))
+      
+foldername = 'communities_Marlene'
+
+kwrgs = dict( {'vmin' : 0, 'vmax' : n_strongest, 
+                   'clevels' : 'notdefault', 'steps':n_strongest+1,
+                   'map_proj' : map_proj, 'cmap' : plt.cm.Dark2, 'column' : 2} )
+plotting_wrapper(commun_num, foldername, kwrgs=kwrgs)
+
+plotting_wrapper(commun_comp, foldername)   

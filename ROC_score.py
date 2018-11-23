@@ -24,8 +24,7 @@ def ROC_score(predictions, observed, threshold_event, lag, n_boot):
     FP_rate =  numpy.ones((11))
     TP_rate[10] = 0
     FP_rate[10] = 0
-    n_times = 20
-    AUC_new = numpy.zeros((n_times))
+    AUC_new = numpy.zeros((n_boot))
     
     #print(fixed_event_threshold) 
     events = numpy.where(observed > threshold_event)[0][:]  
@@ -111,7 +110,7 @@ def ROC_score(predictions, observed, threshold_event, lag, n_boot):
         AUC_score  = numpy.abs(numpy.trapz(TP_rate, FP_rate))
         AUC_new[j] = AUC_score
         AUC_new    = numpy.sort(AUC_new[:])[::-1]
-        pval       = (numpy.asarray(numpy.where(AUC_new > ROC_score)).size)/ n_times
+        pval       = (numpy.asarray(numpy.where(AUC_new > ROC_score)).size)/ n_boot
         ROC_bootstrap = AUC_new 
   
     return ROC_score, ROC_bootstrap
