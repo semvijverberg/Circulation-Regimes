@@ -1037,35 +1037,25 @@ def cross_correlation_patterns(full_timeserie, pattern):
     return covself
 
 def plot_events_validation(pred, obs, pthreshold, othreshold, test_year):
-    #%%
-#    pred = crosscorr_Sem
-#    obs = RV_ts_test
-#    pthreshold = Prec_threshold
-#    othreshold = hotdaythreshold
-#    test_year = 1983
+    pred = crosscorr_Sem
+    obs = RV_ts_test
+    pthreshold = threshold
+    othreshold = hotdaythreshold
+    test_year = 1986
     
     
     predyear = pred.where(pred.time.dt.year == test_year).dropna(dim='time', how='any')
     predyear['time'] = obs.time
     obsyear  = obs.where(obs.time.dt.year == test_year).dropna(dim='time', how='any')
-    
+
+
     eventdays = obsyear.where( obsyear.values > othreshold) 
     eventdays = eventdays.dropna(how='all', dim='time').time
-    
-    preddays = predyear.where(predyear.values > pthreshold)
-    preddays = preddays.dropna(how='all', dim='time').time
-      
-    TP = [day for day in preddays.time.values if day in list(eventdays.values)]
-    
-    predyearscaled = (predyear - pred.mean()) * obsyear.std()/predyear.std() 
+    predyear = (predyear *obsyear.std()/predyear.std())+ obsyear.mean()
     plt.figure()
-    plt.plot(pd.to_datetime(obsyear.time.values),obsyear)
-    plt.plot(pd.to_datetime(obsyear.time.values),predyearscaled)
+    plt.plot(pd.to_datetime(obsyear.time.values), obsyear.values)
+    plt.plot(pd.to_datetime(obsyear.time.values), predyear)
 
     plt.axhline(y=othreshold)
-    for days in eventdays.time.values:
-        plt.axvline(x=pd.to_datetime(days), color='blue', alpha=0.5)
-    for days in preddays.time.values:
-        plt.axvline(x=pd.to_datetime(days), color='orange', alpha=0.5)
-    for days in pd.to_datetime(TP):
-        plt.axvline(x=pd.to_datetime(days), color='green', alpha=1.)
+    for days in pd.to_datetime(eventdays.time.values):
+        plt.axvline(x=days)

@@ -8,7 +8,7 @@ Created on Mon Oct 15 17:50:16 2018
 import numpy
 import random
 
-def ROC_score(predictions, observed, threshold_event, lag):
+def ROC_score(predictions, observed, threshold_event, lag, n_boot):
     
 #    predictions = crosscorr_mcK
 #    observed = mcKts
@@ -53,8 +53,8 @@ def ROC_score(predictions, observed, threshold_event, lag):
     ROC_score = numpy.abs(numpy.trapz(TP_rate, x=FP_rate ))
     # shuffled ROc
     
-
-    for j in range(n_times):
+    ROC_bootstrap = 0
+    for j in range(n_boot):
         
         # shuffle observations / events
         old_index = range(0,len(observed),1)
