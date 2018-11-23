@@ -374,6 +374,27 @@ for lag in lags:
 
     # select antecedant SST pattern to summer days:
     dates_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
+    varfullregmcK = func_mcK.find_region(varfullreg, region='PEPrectangle')[0]
+    full_timeserie_regmck = varfullregmcK.sel(time=dates_min_lag)
+    full_timeserie = varfullreg.sel(time=dates_min_lag)
+    
+    crosscorr_mcK = func_mcK.cross_correlation_patterns(full_timeserie_regmck, mcK_mean.sel(lag=lag))
+    crosscorr_Sem = func_mcK.cross_correlation_patterns(full_timeserie, commun_comp.sel(lag=lag))
+    
+    ROC_mcK, ROC_boot_mcK = ROC_score(predictions=crosscorr_mcK, observed=mcKts, threshold_event=hotdaythreshold, lag=lag)
+    ROC_Sem, ROC_boot_Sem = ROC_score(predictions=crosscorr_Sem, observed=mcKts, threshold_event=hotdaythreshold, lag=lag)
+    ROC_std = 2 * np.std([ROC_boot_mcK, ROC_boot_Sem])
+    print('\n*** ROC score for {} lag {} ***\n\nMck {:.2f} \t Sem {:.2f} '
+        '\t ±{:.2f} 2*std random events'.format(region, 
+          lag, ROC_mcK, ROC_Sem, ROC_std))
+
+#%%
+for lag in lags:
+    idx = lags.index(lag)
+
+    # select antecedant SST pattern to summer days:
+    dates_min_lag = matchdaysmcK - pd.Timedelta(int(lag), unit='d')
+    varfullregmcK = func_mcK.find_region(varfullreg, region='PEPrectangle')[0]
     full_timeserie_regmck = varfullregmcK.sel(time=dates_min_lag)
     full_timeserie = varfullreg.sel(time=dates_min_lag)
     

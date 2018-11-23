@@ -844,11 +844,11 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 def train_weights_LogReg(ts_regions_lag_i, binary_events):
     from sklearn.linear_model import LogisticRegression
     from sklearn.model_selection import train_test_split
-    X = np.swapaxes(ts_regions_lag_i, 1,0)
-    X = ts_regions_lag_i
-    y = binary_events
-    X_train, X_test, y_train, y_test = train_test_split(
-                                        X, y, test_size=0.33)
+#    X = np.swapaxes(ts_regions_lag_i, 1,0)
+    X_train = ts_regions_lag_i
+    y_train = binary_events
+#    X_train, X_test, y_train, y_test = train_test_split(
+#                                        X, y, test_size=0.33)
     
 #    Log_out = LogisticRegression(random_state=0, penalty = 'l2', solver='saga',
 #                       tol = 1E-9, multi_class='ovr').fit(X_train, y_train)
@@ -866,13 +866,13 @@ def train_weights_LogReg(ts_regions_lag_i, binary_events):
     coeff_features = Log_out.coef_
     # predictions score of test 
     # score untrained:
-    score_on_trained = Log_out.score(X_train, y_train)
-    score_untrained = Log_out.score(X_test/Log_out.coef_, y_test)
-    score = Log_out.score(X_test, y_test)
-    print('\nPredictions score using \n'
-          '\ttestdata fit {}\n'.format(score),
-          '\ttestdata normal {}\n'.format(score_untrained),
-          '\ttraindata fit {}\n'.format(score_on_trained))
+#    score_on_trained = Log_out.score(X_train, y_train)
+#    score_untrained = Log_out.score(X_test/Log_out.coef_, y_test)
+#    score = Log_out.score(X_test, y_test)
+#    print('\nPredictions score using \n'
+#          '\ttestdata fit {}\n'.format(score),
+#          '\ttestdata normal {}\n'.format(score_untrained),
+#          '\ttraindata fit {}\n'.format(score_on_trained))
   
     return np.squeeze(coeff_features)
 
