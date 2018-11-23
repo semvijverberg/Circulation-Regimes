@@ -142,7 +142,7 @@ min_detection = 5
 min_events    = 1
 mcK_ROCS = []
 Sem_ROCS = []
-for n in range(30):
+for n in range(2):
     no_events_occuring = True
     while no_events_occuring == True:
         no_events_occuring = False
@@ -328,6 +328,9 @@ for lag in lags:
     print('\n*** ROC score for {} lag {} ***\n\nMck {:.2f} \t Sem {:.2f} '
         '\t ±{:.2f} 2*std random events'.format(region, 
           lag, ROC_mcK, ROC_Sem, ROC_std))
+test_year = list(np.arange(2000, 2005))
+func_mcK.plot_events_validation(crosscorr_Sem, RV_ts_test, Prec_threshold, 
+                                hotdaythreshold, test_year)
       
 foldername = 'communities_Marlene'
 
@@ -337,3 +340,4 @@ kwrgs = dict( {'vmin' : 0, 'vmax' : n_strongest,
 plotting_wrapper(commun_num, foldername, kwrgs=kwrgs)
 
 plotting_wrapper(commun_comp, foldername)   
+
