@@ -112,7 +112,7 @@ def plot_oneyr_events(xarray, threshold, test_year):
     for days in eventdays.time.values:
         plt.axvline(x=days)
 ## plotting same figure as in paper
-plot_oneyr_events(mcKts, hotdaythreshold, 2012)
+plot_oneyr_events(mcKts, hotdaythreshold, 2000)
 
 # not merging hot days which happen consequtively
 matchhotdates = func_mcK.to_datesmcK(Ev_dates, Ev_dates[0].dt.hour, varfullgl.time[0].dt.hour)
@@ -135,18 +135,23 @@ def plotting_wrapper(plotarr, foldername, kwrgs=None):
     else:
         kwrgs = kwrgs
         kwrgs['title'] = title
-    func_mcK.finalfigure(plotarr, file_name, kwrgs) 
+    func_mcK.finalfigure(plotarr, file_name, kwrgs)
+    
 #%% Divide into train and validation step
-lags = [30, 40, 50, 60]
+n_runs = 10
+lags = [30]
 min_detection = 5
 min_events    = 1
 mcK_ROCS = []
 Sem_ROCS = []
-for n in range(2):
+score_per_year = []
+for n in range(n_runs):
     no_events_occuring = True
     while no_events_occuring == True:
         no_events_occuring = False
+        # Divide into random sampled 25 year for train & rest for test
         n_years_sampled = int((ex['endyear'] - ex['startyear']+1)*0.66)
+        # leave year one out to be tested
         n_years_sampled = int((ex['endyear'] - ex['startyear']+1)) -1
         random_years = np.arange(ex['startyear'], ex['endyear']+1)
         random_years = np.random.choice(random_years, n_years_sampled, replace=False)
@@ -184,12 +189,28 @@ for n in range(2):
         
 
 
-    # Mean over 230 hot days
-    
+    # =============================================================================
+    #  Mean over 230 hot days
+    # =============================================================================
     var_train_mcK = func_mcK.find_region(Prec_train, region='PEPrectangle')[0]
-    array = np.zeros( (len(lags),var_train_mcK.latitude.size, var_train_mcK.longitude.size) )
-    mcK_mean = xr.DataArray(data=array, coords=[lags, var_train_mcK.latitude, var_train_mcK.longitude], 
-                          dims=['lag','latitude','longitude'], name='McK_Composite_diff_lags')
+    
+    time = var_train_mcK.time
+    lats = var_train_mcK.latitude
+    lons = var_train_mcK.longitude
+    pthresholds = np.linspace(1, 9, 9, dtype=int)
+    
+    array = np.zeros( (len(lags), len(lats), len(lons)) )
+    pattern = xr.DataArray(data=array, coords=[lags, lats, lons], 
+                          dims=['lag','latitude','longitude'], name='McK_Composite_diff_lags',
+                          attrs={'units':'Kelvin'})
+    array = np.zeros( (len(lags), len(time)) )
+    pattern_ts = xr.DataArray(data=array, coords=[lags, time], 
+                          dims=['lag','time'], name='McK_mean_ts_diff_lags',
+                          attrs={'units':'Kelvin'})
+    
+    array = np.zeros( (len(lags), len(pthresholds)) )
+    pattern_p = xr.DataArray(data=array, coords=[lags, pthresholds], 
+                          dims=['lag','percentile'], name='McK_mean_p_diff_lags')
     for lag in lags:
         idx = lags.index(lag)
         event_train = func_mcK.Ev_timeseries(RV_train, hotdaythreshold).time
@@ -197,51 +218,60 @@ for n in range(2):
         events_min_lag = event_train - pd.Timedelta(int(lag), unit='d')
         dates_train_min_lag = dates_train - pd.Timedelta(int(lag), unit='d')
         
-        varhotdays = var_train_mcK.sel(time=events_min_lag).mean(dim='time')
-        mcK_mean[idx] = varhotdays 
+        pattern_atlag = var_train_mcK.sel(time=events_min_lag).mean(dim='time')
+        pattern[idx] = pattern_atlag 
         
-        std_lag =  var_train_mcK.sel(time=dates_train_min_lag).std(dim='time')    
-        signaltonoise = abs(varhotdays/std_lag)
-        weights = signaltonoise / np.mean(signaltonoise)
-        
-    
-        
-    mcK_mean.attrs['units'] = 'Kelvin (absolute values)'
-    folder = os.path.join(ex['fig_path'], 'mcKinnon_mean')
-    if os.path.isdir(folder) != True : os.makedirs(folder)
-    fname = '{} - mean composite tf{} lags {} {}.png'.format(ex['name'], ex['tfreq'],
-             lags, region)
-    file_name = os.path.join(folder, fname)
-    
-    #title = 'mean composite - absolute values \nT95 McKinnon data - ERA-I SST'
-    #kwrgs = dict( {'vmin' : -3*mcK_mean.std().values, 'vmax' : 3*mcK_mean.std().values, 
-    #               'steps' : 17, 'title' : title, 'clevels' : 'notdefault',
-    #               'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
-    #func_mcK.finalfigure(mcK_mean, file_name, kwrgs) 
-    
-    
-    # Extracting feature to build spatial map
+        crosscorr = func_mcK.cross_correlation_patterns(var_train_mcK, pattern)
+        pattern_ts[idx] = crosscorr
+        # Percentile values based on training dataset
+        p_pred = []
+        for p in pthresholds:	
+            p_pred.append(np.percentile(crosscorr.values, p*10))
+        pattern_p[idx] = p_pred
+    ds_mcK = xr.Dataset( {'pattern' : pattern, 'ts' : crosscorr, 'perc' : pattern_p} )
     
         
         
+    
+        
+#    mcK_mean.attrs['units'] = 'Kelvin (absolute values)'
+#    folder = os.path.join(ex['fig_path'], 'mcKinnon_mean')
+#    if os.path.isdir(folder) != True : os.makedirs(folder)
+#    fname = '{} - mean composite tf{} lags {} {}.png'.format(ex['name'], ex['tfreq'],
+#             lags, region)
+#    file_name = os.path.join(folder, fname)
+#    title = 'mean composite - absolute values \nT95 McKinnon data - ERA-I SST'
+#    kwrgs = dict( {'vmin' : -3*mcK_mean.std().values, 'vmax' : 3*mcK_mean.std().values, 
+#                   'steps' : 17, 'title' : title, 'clevels' : 'notdefault',
+#                   'map_proj' : map_proj, 'cmap' : plt.cm.RdBu_r, 'column' : 2} )
+#    func_mcK.finalfigure(mcK_mean, file_name, kwrgs) 
+    
+    
+    
+    
+# =============================================================================
+# Extracting feature to build spatial map
+# =============================================================================
+    
     n_strongest = 20
     n_std = 1.5      
-    commun_comp, commun_num = func_mcK.extract_precursor(Prec_train, RV_train, ex,
+    ds_Sem = func_mcK.extract_precursor(Prec_train, RV_train, ex,
                                             hotdaythreshold, lags, n_std, n_strongest)
-#    foldername = 'communities_Marlene'
-#    
-#    kwrgs = dict( {'vmin' : 0, 'vmax' : n_strongest, 
-#                       'clevels' : 'notdefault', 'steps':n_strongest+1,
-#                       'map_proj' : map_proj, 'cmap' : plt.cm.Dark2, 'column' : 2} )
+
+    foldername = 'communities_Marlene'
+    kwrgs = dict( {'vmin' : 0, 'vmax' : n_strongest, 
+                       'clevels' : 'notdefault', 'steps':n_strongest+1,
+                       'map_proj' : map_proj, 'cmap' : plt.cm.Dark2, 'column' : 2} )
 #    plotting_wrapper(commun_num, foldername, kwrgs=kwrgs)
 #    
 #    plotting_wrapper(commun_comp, foldername)    
     
         
+  
 
-    
-
-    
+    # =============================================================================
+    # calc ROC scores
+    # =============================================================================
     for lag in lags:
         idx = lags.index(lag)
     
@@ -249,53 +279,66 @@ for n in range(2):
         dates_min_lag = dates_test - pd.Timedelta(int(lag), unit='d')
         var_test_mcK = func_mcK.find_region(Prec_test, region='PEPrectangle')[0]
     #    full_timeserie_regmck = var_test_mcK.sel(time=dates_min_lag)
-        full_timeserie = Prec_test.sel(time=dates_min_lag)
+        var_test_reg = Prec_test.sel(time=dates_min_lag)
         var_test_mcK = var_test_mcK.sel(time=dates_min_lag)
+        
+
+        crosscorr_mcK = func_mcK.cross_correlation_patterns(var_test_mcK, 
+                                                            ds_mcK['pattern'].sel(lag=lag))
+        crosscorr_Sem = func_mcK.cross_correlation_patterns(var_test_reg, 
+                                                            ds_Sem['pattern'].sel(lag=lag))
+        
+#        plt.plot(crosscorr_mcK)
+#        plt.plot(crosscorr_Sem)
+#        
+        
+        
+        # check detection of precursor:
+        Prec_threshold_mcK = ds_mcK['perc'].sel(percentile=60 /10).values[0]
+        Prec_threshold_Sem = ds_Sem['perc'].sel(percentile=60 /10).values[0]
+        
+        # =============================================================================
+        # Determine events in time series
+        # =============================================================================
+        # check if there are any detections
+        Prec_det_mcK = (func_mcK.Ev_timeseries(crosscorr_mcK, Prec_threshold_mcK).size > min_detection)
+        Prec_det_Sem = (func_mcK.Ev_timeseries(crosscorr_Sem, Prec_threshold_Sem).size > min_detection)
         
         # select test event predictand series
         RV_ts_test = RV_test
-        crosscorr_mcK = func_mcK.cross_correlation_patterns(var_test_mcK, mcK_mean.sel(lag=lag))
-        crosscorr_Sem = func_mcK.cross_correlation_patterns(full_timeserie, commun_comp.sel(lag=lag))
-        
-        # check detection of precursor:
-        Prec_threshold = (crosscorr_mcK.mean() + np.std(crosscorr_mcK)).values
-        Prec_det_mcK = (func_mcK.Ev_timeseries(crosscorr_mcK, Prec_threshold).size > min_detection)
-        
-        
-        Prec_threshold = (crosscorr_Sem.mean() + np.std(crosscorr_Sem)).values
-        Prec_det_Sem = (func_mcK.Ev_timeseries(crosscorr_Sem, Prec_threshold).size > min_detection)
-        
-        func_mcK.plot_events_validation(crosscorr_Sem, RV_ts_test, Prec_threshold, 
-                                        hotdaythreshold, test_year)
+        # plot the detections
+        func_mcK.plot_events_validation(crosscorr_Sem, crosscorr_mcK, RV_ts_test, Prec_threshold_Sem, 
+                                        Prec_threshold_mcK, hotdaythreshold, test_year)
 
-        
+
         if Prec_det_mcK == True:
             n_boot = 0
             ROC_mcK, ROC_boot_mcK = ROC_score(crosscorr_mcK, RV_ts_test,
-                                  hotdaythreshold, lag, n_boot)
+                                  hotdaythreshold, lag, n_boot, ds_mcK['perc'])
             ROC_std = 2 * np.std([ROC_boot_mcK])
             mcK_ROCS.append(ROC_mcK)
         else:
             print('Not enough predictions detected, neglecting this predictions')
-            ROC_mcK = 0.0
+            ROC_mcK = ROC_std = 0.0
 
 
         
         if Prec_det_Sem == True:
             ROC_Sem, ROC_boot_Sem = ROC_score(crosscorr_Sem, RV_ts_test,
-                                  hotdaythreshold, lag, n_boot)
+                                  hotdaythreshold, lag, n_boot, ds_Sem['perc'])
             ROC_std = 2 * np.std([ROC_boot_Sem])
             Sem_ROCS.append(ROC_Sem)
 #                Sem_ROCS.append(commun_comp.sel(lag=lag))
         else:
             print('Not enough predictions detected, neglecting this predictions')
-            ROC_Sem = 0.0
+            ROC_Sem = ROC_std = 0.0
                                   
             
         print('\n*** ROC score for {} lag {} ***\n\nMck {:.2f} \t Sem {:.2f} '
             '\t ±{:.2f} 2*std random events\n\n'.format(region, 
               lag, ROC_mcK, ROC_Sem, ROC_std))
         
+        score_per_year.append([test_year, len(event_test), ROC_mcK, ROC_Sem])
 
 #                mcK_ROCS.append(mcK_mean.sel(lag=lag))
         
@@ -316,28 +359,34 @@ for lag in lags:
     # select test event predictand series
     RV_ts_test = mcKts
     crosscorr_mcK = func_mcK.cross_correlation_patterns(full_timeserie_regmck, 
-                                                        mcK_mean.sel(lag=lag))
+                                                ds_mcK['pattern'].sel(lag=lag))
     crosscorr_Sem = func_mcK.cross_correlation_patterns(full_timeserie, 
-                                                        commun_comp.sel(lag=lag))
+                                                ds_Sem['pattern'].sel(lag=lag))
     n_boot = 5
     ROC_mcK, ROC_boot_mcK = ROC_score(crosscorr_mcK, RV_ts_test,
-                                  hotdaythreshold, lag, n_boot)
+                                  hotdaythreshold, lag, n_boot, ds_mcK['perc'])
     ROC_Sem, ROC_boot_Sem = ROC_score(crosscorr_Sem, RV_ts_test,
-                                  hotdaythreshold, lag, n_boot)
+                                  hotdaythreshold, lag, n_boot, ds_Sem['perc'])
+    
+#    ROC_mcK, ROC_boot_mcK = ROC_score(crosscorr_mcK, RV_ts_test,
+#                                  hotdaythreshold, lag, n_boot, 'default')
+#    ROC_Sem, ROC_boot_Sem = ROC_score(crosscorr_Sem, RV_ts_test,
+#                                  hotdaythreshold, lag, n_boot, 'default')
+    
     ROC_std = 2 * np.std([ROC_boot_mcK, ROC_boot_Sem])
     print('\n*** ROC score for {} lag {} ***\n\nMck {:.2f} \t Sem {:.2f} '
         '\t ±{:.2f} 2*std random events'.format(region, 
           lag, ROC_mcK, ROC_Sem, ROC_std))
-test_year = list(np.arange(2000, 2005))
-func_mcK.plot_events_validation(crosscorr_Sem, RV_ts_test, Prec_threshold, 
-                                hotdaythreshold, test_year)
+#test_year = list(np.arange(2000, 2005))
+#func_mcK.plot_events_validation(crosscorr_Sem, RV_ts_test, Prec_threshold, 
+#                                hotdaythreshold, test_year)
       
 foldername = 'communities_Marlene'
 
 kwrgs = dict( {'vmin' : 0, 'vmax' : n_strongest, 
                    'clevels' : 'notdefault', 'steps':n_strongest+1,
                    'map_proj' : map_proj, 'cmap' : plt.cm.Dark2, 'column' : 2} )
-plotting_wrapper(commun_num, foldername, kwrgs=kwrgs)
+#plotting_wrapper(commun_num, foldername, kwrgs=kwrgs)
 
-plotting_wrapper(commun_comp, foldername)   
+plotting_wrapper(ds_Sem['pattern'], foldername)   
 

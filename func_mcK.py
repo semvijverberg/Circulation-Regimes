@@ -929,14 +929,31 @@ def extract_commun(composite, actbox, event_binary, n_std, n_strongest):
         return weighted_mean, xrnpmap, ts_regions_lag_i
 
 def extract_precursor(Prec_train, RV_train, ex, hotdaythreshold, lags, n_std, n_strongest):
-    array = np.zeros( (len(lags),Prec_train.latitude.size, Prec_train.longitude.size) )
-    commun_comp = xr.DataArray(data=array, coords=[lags, Prec_train.latitude, Prec_train.longitude], 
-                          dims=['lag','latitude','longitude'], name='communities_composite', 
+    
+    time = RV_train.time
+    lats = Prec_train.latitude
+    lons = Prec_train.longitude
+    pthresholds = np.linspace(1, 9, 9, dtype=int)
+    
+    array = np.zeros( (len(lags), len(lats), len(lons)) )
+    pattern = xr.DataArray(data=array, coords=[lags, lats, lons], 
+                          dims=['lag','latitude','longitude'], name='communities_composite',
                           attrs={'units':'Kelvin'})
-    array = np.zeros( (len(lags),Prec_train.latitude.size, Prec_train.longitude.size) )
-    commun_num = xr.DataArray(data=array, coords=[lags, Prec_train.latitude, Prec_train.longitude], 
+
+    
+    array = np.zeros( (len(lags), len(lats), len(lons)) )
+    pattern_num = xr.DataArray(data=array, coords=[lags, lats, lons], 
                           dims=['lag','latitude','longitude'], name='communities_numbered', 
                           attrs={'units':'regions'})
+    
+    array = np.zeros( (len(lags), len(time)) )
+    pattern_ts = xr.DataArray(data=array, coords=[lags, time], 
+                          dims=['lag','time'], name='Sem_mean_ts_diff_lags',
+                          attrs={'units':'Kelvin'})
+
+    array = np.zeros( (len(lags), len(pthresholds)) )
+    pattern_p = xr.DataArray(data=array, coords=[lags, pthresholds], 
+                          dims=['lag','percentile'], name='Sem_mean_p_diff_lags')
 
     
     
@@ -952,28 +969,35 @@ def extract_precursor(Prec_train, RV_train, ex, hotdaythreshold, lags, n_std, n_
         events_min_lag = event_train - pd.Timedelta(int(lag), unit='d')
         dates_train = to_datesmcK(RV_train.time, RV_train.time.dt.hour[0], 
                                            Prec_train.time[0].dt.hour)
-
         dates_train_min_lag = dates_train - pd.Timedelta(int(lag), unit='d')
-    
         event_idx = [list(dates_train.values).index(E) for E in event_train.values]
         event_binary = np.zeros(dates_train.size)    
         event_binary[event_idx] = 1
-        
         full = Prec_train.sel(time=dates_train_min_lag)
         composite = Prec_train.sel(time=events_min_lag)
         var = ex['name']
         actbox = np.reshape(full.values, (full.time.size, 
                                           full.latitude.size*full.longitude.size))
         
-
-        
-        commun_mean, commun_numbered, ts_regions_lag_i = extract_commun(
+        # extract communities
+        pattern_atlag, commun_numbered, ts_regions_lag_i = extract_commun(
                         composite, actbox, event_binary, n_std, n_strongest)  
         
-        commun_comp[idx] = commun_mean
-        commun_num[idx]  = commun_numbered
+        pattern[idx] = pattern_atlag
+        pattern_num[idx]  = commun_numbered
+        
+        crosscorr_Sem = cross_correlation_patterns(full, pattern)
+        pattern_ts['time'] = crosscorr_Sem.time
+        pattern_ts[idx] = crosscorr_Sem
+        # Percentile values based on training dataset
+        p_pred = []
+        for p in pthresholds:	
+            p_pred.append(np.percentile(crosscorr_Sem.values, p*10))
+        pattern_p[idx] = p_pred
+    ds_Sem = xr.Dataset( {'pattern' : pattern, 'ts' : pattern_ts, 'perc' : pattern_p} )
+        
     
-    return commun_comp, commun_num
+    return ds_Sem
 
 def train_weights_LogReg(ts_regions_lag_i, binary_events):
 #    from sklearn.linear_model import LogisticRegression
@@ -1012,12 +1036,22 @@ def train_weights_LogReg(ts_regions_lag_i, binary_events):
 
 def cross_correlation_patterns(full_timeserie, pattern):
 #    full_timeserie = precursor
+#    pattern = mcK_mean.sel(lag=lag)
+    mask = np.ma.make_mask(np.isnan(pattern.values)==False)
     
     n_time = full_timeserie.time.size
     n_space = pattern.size
     
+
+#    mask_pattern = np.tile(mask_pattern, (n_time,1))
+    # select only gridcells where there is not a nan
     full_ts = np.nan_to_num(np.reshape( full_timeserie.values, (n_time, n_space) ))
     pattern = np.nan_to_num(np.reshape( pattern.values, (n_space) ))
+
+    mask_pattern = np.reshape( mask, (n_space) )
+    full_ts = full_ts[:,mask_pattern]
+    pattern = pattern[mask_pattern]
+    
     crosscorr = np.zeros( (n_time) )
     spatcov   = np.zeros( (n_time) )
     covself   = np.zeros( (n_time) )
@@ -1033,47 +1067,85 @@ def cross_correlation_patterns(full_timeserie, pattern):
         covself[t] = np.mean( (full_ts[t] - np.mean(full_ts[t])) * (pattern - np.mean(pattern)) )
         corrself[t] = covself[t] / (np.std(full_ts[t]) * np.std(pattern))
     dates_test = full_timeserie.time
-    covself = xr.DataArray(covself, coords=[dates_test.values], dims=['time'])
-    return covself
+    corrself = xr.DataArray(corrself, coords=[dates_test.values], dims=['time'])
+    
+#    # standardize
+    corrself -= corrself.mean(dim='time')
+    return corrself
 
-def plot_events_validation(pred, obs, pthreshold, othreshold, test_year=None):
+def plot_events_validation(pred1, pred2, obs, pt1, pt2, othreshold, test_year=None):
     #%%
-#    pred = crosscorr_Sem
+#    pred1 = crosscorr_Sem
+#    pred2 = crosscorr_mcK
 #    obs = RV_ts_test
-#    pthreshold = Prec_threshold
+#    pt1 = Prec_threshold_Sem
+#    pt2 = Prec_threshold_mcK
 #    othreshold = hotdaythreshold
-#    test_year = [2000,2003]
+#    test_year = int(crosscorr_Sem.time.dt.year[0])
     
-    if type(test_year) == type(int(0)):
-        predyear = pred.where(pred.time.dt.year == test_year).dropna(dim='time', how='any')
-        predyear['time'] = obs.time
-        obsyear  = obs.where(obs.time.dt.year == test_year).dropna(dim='time', how='any')
-    elif type(test_year) == type([]):
-        years_in_obs = list(obs.time.dt.year.values)
-        test_years = [i for i in range(len(years_in_obs)) if years_in_obs[i] in test_year]
-        predyear = pred.isel(time=test_years)
-        obsyear = obs.isel(time=test_years)
-    else:
-        predyear = pred
-        predyear['time'] = obs.time
-        obsyear = obs
-    eventdays = obsyear.where( obsyear.values > othreshold) 
-    eventdays = eventdays.dropna(how='all', dim='time').time
-    
-    preddays = predyear.where(predyear.values > pthreshold)
-    preddays = preddays.dropna(how='all', dim='time').time
-      
-    TP = [day for day in preddays.time.values if day in list(eventdays.values)]
-    
-    predyearscaled = (predyear - pred.mean()) * obsyear.std()/predyear.std() 
-    plt.figure(figsize = (10,5))
-    plt.plot(pd.to_datetime(obsyear.time.values),obsyear)
-    plt.plot(pd.to_datetime(obsyear.time.values),predyearscaled)
+    def predyear(pred, obs):
+        if type(test_year) == type(int(0)):
+            predyear = pred1.where(pred1.time.dt.year == test_year).dropna(dim='time', how='any')
+            predyear['time'] = obs.time
+            obsyear  = obs.where(obs.time.dt.year == test_year).dropna(dim='time', how='any')
+        elif type(test_year) == type(['list']):
+            years_in_obs = list(obs.time.dt.year.values)
+            test_years = [i for i in range(len(years_in_obs)) if years_in_obs[i] in test_year]
+            # Warning this is wrong #!!!
+            predyear = pred1.isel(time=test_years)
+            obsyear = obs.isel(time=test_years)
+        else:
+            predyear = pred1
+            predyear['time'] = obs.time
+            obsyear = obs
+        return predyear, obsyear
+        
+    predyear1, obsyear = predyear(pred1, obs)
+    predyear2, obsyear = predyear(pred2, obs)
 
-    plt.axhline(y=othreshold)
+    eventdays = obsyear.where( obsyear.values > othreshold ) 
+    eventdays = eventdays.dropna(how='all', dim='time').time
+    preddays = predyear1.where(predyear1.values > pt1)
+    preddays1 = preddays.dropna(how='all', dim='time').time
+    preddays = predyear2.where(predyear1.values > pt2)
+    preddays2 = preddays.dropna(how='all', dim='time').time
+#    # standardize obsyear
+#    othreshold -= obsyear.mean(dim='time').values
+#    obsyear    -= obsyear.mean(dim='time')
+#    
+#    # standardize predyear(s)
+#    pthreshold -= predyear.mean(dim='time').values
+#    predyear    -= predyear.mean(dim='time')
+      
+    TP1 = [day for day in preddays1.time.values if day in list(eventdays.values)]
+    TP2 = [day for day in preddays2.time.values if day in list(eventdays.values)]
+#    pthreshold = ((pthreshold - pred1.mean()) * obsyear.std()/predyear.std()).values
+#    predyear = (predyear) * obsyear.std()/predyear.std() 
+    plt.figure(figsize = (10,5))
+    ax1 = plt.subplot(311)
+    ax1.plot(pd.to_datetime(obsyear.time.values), obsyear, label='observed',
+             color = 'blue')
+    ax1.axhline(y=othreshold, color='blue')
     for days in eventdays.time.values:
-        plt.axvline(x=pd.to_datetime(days), color='blue', alpha=0.3)
-    for days in preddays.time.values:
-        plt.axvline(x=pd.to_datetime(days), color='red', alpha=0.3)
-    for days in pd.to_datetime(TP):
-        plt.axvline(x=pd.to_datetime(days), color='green', alpha=1.)
+        ax1.axvline(x=pd.to_datetime(days), color='blue', alpha=0.3)
+    ax1.legend()
+
+    ax2 = plt.subplot(312)
+    ax2.plot(pd.to_datetime(obsyear.time.values),predyear1, label='Sem pattern ts',
+             color='red')
+    ax2.axhline(y=pt1, color='red')
+    for days in preddays1.time.values:
+        ax2.axvline(x=pd.to_datetime(days), color='red', alpha=0.3)
+    for days in pd.to_datetime(TP1):
+        ax2.axvline(x=pd.to_datetime(days), color='green', alpha=1.)
+    ax2.legend()
+    # second prediction
+    ax3 = plt.subplot(313)
+    ax3.plot(pd.to_datetime(obsyear.time.values),predyear1, label='mcK pattern ts',
+             color='red')
+    ax3.axhline(y=pt2, color='red')
+    for days in preddays2.time.values:
+        ax3.axvline(x=pd.to_datetime(days), color='red', alpha=0.3)
+    for days in pd.to_datetime(TP2):
+        ax3.axvline(x=pd.to_datetime(days), color='green', alpha=1.)
+    ax3.legend()

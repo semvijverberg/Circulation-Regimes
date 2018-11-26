@@ -8,15 +8,16 @@ Created on Mon Oct 15 17:50:16 2018
 import numpy
 import random
 
-def ROC_score(predictions, observed, threshold_event, lag, n_boot):
+def ROC_score(predictions, observed, thr_event, lag, n_boot, thr_pred=None):
     
 #    predictions = crosscorr_mcK
 #    observed = mcKts
-#    threshold_event = hotdaythreshold
+#    thr_event = hotdaythreshold
     
    # calculate ROC scores
     observed = numpy.copy(observed)
-    predictions = predictions - numpy.mean(predictions)
+    # Standardize predictor time series
+#    predictions = predictions - numpy.mean(predictions)
     # P_index = numpy.copy(AIR_rain_index)	
     # Test ROC-score			
     
@@ -27,13 +28,15 @@ def ROC_score(predictions, observed, threshold_event, lag, n_boot):
     AUC_new = numpy.zeros((n_boot))
     
     #print(fixed_event_threshold) 
-    events = numpy.where(observed > threshold_event)[0][:]  
-    not_events = numpy.where(observed <= threshold_event)[0][:]     
+    events = numpy.where(observed > thr_event)[0][:]  
+    not_events = numpy.where(observed <= thr_event)[0][:]     
     for p in numpy.linspace(1, 9, 9, dtype=int):	
-        
-        p_pred = numpy.percentile(predictions, p*10)
-        positives_pred = numpy.where(predictions > predictions.mean() + p_pred)[0][:]
-        negatives_pred = numpy.where(predictions <= predictions.mean()+ p_pred)[0][:]
+        if str(thr_pred) == 'default':
+            p_pred = numpy.percentile(predictions, p*10)
+        else:
+            p_pred = thr_pred.sel(percentile=p).values[0]
+        positives_pred = numpy.where(predictions > p_pred)[0][:]
+        negatives_pred = numpy.where(predictions <= p_pred)[0][:]
 
 						
         True_pos = [a for a in positives_pred if a in events]
@@ -74,13 +77,17 @@ def ROC_score(predictions, observed, threshold_event, lag, n_boot):
         TP_rate[10] = 0
         FP_rate[10] = 0
 
-        events = numpy.where(new_observed > threshold_event)[0][:]  
-        not_events = numpy.where(new_observed <= threshold_event)[0][:]     
+        events = numpy.where(new_observed > thr_event)[0][:]  
+        not_events = numpy.where(new_observed <= thr_event)[0][:]     
         for p in numpy.linspace(1, 9, 9, dtype=int):	
+            if str(thr_pred) == 'default':
+                p_pred = numpy.percentile(predictions, p*10)
+            else:
+                p_pred = thr_pred.sel(percentile=p).values[0]
             
             p_pred = numpy.percentile(predictions, p*10)
-            positives_pred = numpy.where(predictions > predictions.mean() + p_pred)[0][:]
-            negatives_pred = numpy.where(predictions <= predictions.mean()+ p_pred)[0][:]
+            positives_pred = numpy.where(predictions > p_pred)[0][:]
+            negatives_pred = numpy.where(predictions <= p_pred)[0][:]
     
     						
             True_pos = [a for a in positives_pred if a in events]
