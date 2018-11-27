@@ -38,8 +38,8 @@ ex = dict(
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
      'path_pp'      :       path_pp,
-     'sstartdate'   :       '1982-06-24',
-     'senddate'     :       '1982-08-22',
+     'sstartdate'   :       '1982-06-01',
+     'senddate'     :       '1982-08-31',
      'map_proj'     :       map_proj,
      'fig_path'     :       "/Users/semvijverberg/surfdrive/McKinRepl/T95_ERA-I"}
      )
@@ -112,7 +112,7 @@ def plot_oneyr_events(xarray, threshold, test_year):
     for days in eventdays.time.values:
         plt.axvline(x=days)
 ## plotting same figure as in paper
-plot_oneyr_events(mcKts, hotdaythreshold, 2000)
+plot_oneyr_events(mcKts, hotdaythreshold, 2012)
 
 # not merging hot days which happen consequtively
 matchhotdates = func_mcK.to_datesmcK(Ev_dates, Ev_dates[0].dt.hour, varfullgl.time[0].dt.hour)
@@ -138,35 +138,45 @@ def plotting_wrapper(plotarr, foldername, kwrgs=None):
     func_mcK.finalfigure(plotarr, file_name, kwrgs)
     
 #%% Divide into train and validation step
-n_runs = 10
-lags = [30]
+n_runs = 1
+leave_n_years_out = 5
+lags = [30,40]
 min_detection = 5
 min_events    = 1
 mcK_ROCS = []
 Sem_ROCS = []
 score_per_year = []
+
+all_years = np.arange(ex['startyear'], ex['endyear']+1)
+initial_years = all_years.copy()
 for n in range(n_runs):
     no_events_occuring = True
     while no_events_occuring == True:
         no_events_occuring = False
         # Divide into random sampled 25 year for train & rest for test
-        n_years_sampled = int((ex['endyear'] - ex['startyear']+1)*0.66)
-        # leave year one out to be tested
-        n_years_sampled = int((ex['endyear'] - ex['startyear']+1)) -1
-        random_years = np.arange(ex['startyear'], ex['endyear']+1)
-        random_years = np.random.choice(random_years, n_years_sampled, replace=False)
+#        n_years_sampled = int((ex['endyear'] - ex['startyear']+1)*0.66)
+        
+        # leave years out to be tested
+        no_dublicates = False
+        while no_dublicates == False:
+            rand_test_years = np.random.choice(initial_years, leave_n_years_out, replace=False)
+            # test duplicates
+            no_dublicates = (len(set(rand_test_years)) == leave_n_years_out)
+        # Update random years to be selected as test years:
+#        initial_years = [yr for yr in initial_years if yr not in random_test_years]
+        rand_train_years = [yr for yr in all_years if yr not in rand_test_years]
     
         RV_dates = list(matchdaysmcK.time.dt.year.values)
         full_years  = list(Prec_reg.time.dt.year.values)
         RV_years  = list(mcKts.time.dt.year.values)
         
-        RV_dates_train_idx = [i for i in range(len(RV_dates)) if RV_dates[i] in random_years]
-        var_train_idx = [i for i in range(len(full_years)) if full_years[i] in random_years]
-        RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in random_years]
+        RV_dates_train_idx = [i for i in range(len(RV_dates)) if RV_dates[i] in rand_train_years]
+        var_train_idx = [i for i in range(len(full_years)) if full_years[i] in rand_train_years]
+        RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_train_years]
         
-        RV_dates_test_idx = [i for i in range(len(RV_dates)) if RV_dates[i] not in random_years]
-        var_test_idx = [i for i in range(len(full_years)) if full_years[i] not in random_years]
-        RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] not in random_years]
+        RV_dates_test_idx = [i for i in range(len(RV_dates)) if RV_dates[i] in rand_test_years]
+        var_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
+        RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
         
         
         dates_train = matchdaysmcK.isel(time=RV_dates_train_idx)
@@ -181,12 +191,12 @@ for n in range(n_runs):
         event_train = func_mcK.Ev_timeseries(RV_train, hotdaythreshold).time
         event_test = func_mcK.Ev_timeseries(RV_test, hotdaythreshold).time
         
-        test_year = [yr for yr in list(set(RV_years)) if yr not in random_years][0]
+        test_year = [yr for yr in list(set(RV_years)) if yr in rand_test_years]
         
         print('test year is {}, with {} events'.format(test_year, len(event_test)))
         no_events_occuring = len(event_test) < min_events
     
-        
+
 
 
     # =============================================================================
@@ -203,8 +213,8 @@ for n in range(n_runs):
     pattern = xr.DataArray(data=array, coords=[lags, lats, lons], 
                           dims=['lag','latitude','longitude'], name='McK_Composite_diff_lags',
                           attrs={'units':'Kelvin'})
-    array = np.zeros( (len(lags), len(time)) )
-    pattern_ts = xr.DataArray(data=array, coords=[lags, time], 
+    array = np.zeros( (len(lags), len(dates_train)) )
+    pattern_ts = xr.DataArray(data=array, coords=[lags, dates_train], 
                           dims=['lag','time'], name='McK_mean_ts_diff_lags',
                           attrs={'units':'Kelvin'})
     
@@ -215,13 +225,17 @@ for n in range(n_runs):
         idx = lags.index(lag)
         event_train = func_mcK.Ev_timeseries(RV_train, hotdaythreshold).time
         event_train = func_mcK.to_datesmcK(event_train, event_train.dt.hour[0], var_train_mcK.time[0].dt.hour)
-        events_min_lag = event_train - pd.Timedelta(int(lag), unit='d')
-        dates_train_min_lag = dates_train - pd.Timedelta(int(lag), unit='d')
+        events_train_atlag = event_train - pd.Timedelta(int(lag), unit='d')
+        dates_train_atlag = dates_train - pd.Timedelta(int(lag), unit='d')
         
-        pattern_atlag = var_train_mcK.sel(time=events_min_lag).mean(dim='time')
+
+        pattern_atlag = var_train_mcK.sel(time=events_train_atlag).mean(dim='time')
         pattern[idx] = pattern_atlag 
+        ts_3d = var_train_mcK.sel(time=dates_train_atlag)
         
-        crosscorr = func_mcK.cross_correlation_patterns(var_train_mcK, pattern)
+        
+        crosscorr = func_mcK.cross_correlation_patterns(ts_3d, pattern_atlag)
+        crosscorr['time'] = pattern_ts.time
         pattern_ts[idx] = crosscorr
         # Percentile values based on training dataset
         p_pred = []
@@ -230,7 +244,7 @@ for n in range(n_runs):
         pattern_p[idx] = p_pred
     ds_mcK = xr.Dataset( {'pattern' : pattern, 'ts' : crosscorr, 'perc' : pattern_p} )
     
-        
+  
         
     
         
@@ -253,7 +267,7 @@ for n in range(n_runs):
 # Extracting feature to build spatial map
 # =============================================================================
     
-    n_strongest = 20
+    n_strongest = 15
     n_std = 1.5      
     ds_Sem = func_mcK.extract_precursor(Prec_train, RV_train, ex,
                                             hotdaythreshold, lags, n_std, n_strongest)
@@ -307,8 +321,8 @@ for n in range(n_runs):
         # select test event predictand series
         RV_ts_test = RV_test
         # plot the detections
-        func_mcK.plot_events_validation(crosscorr_Sem, crosscorr_mcK, RV_ts_test, Prec_threshold_Sem, 
-                                        Prec_threshold_mcK, hotdaythreshold, test_year)
+#        func_mcK.plot_events_validation(crosscorr_Sem, crosscorr_mcK, RV_ts_test, Prec_threshold_Sem, 
+#                                        Prec_threshold_mcK, hotdaythreshold, test_year[2])
 
 
         if Prec_det_mcK == True:

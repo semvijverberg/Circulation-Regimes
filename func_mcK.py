@@ -846,7 +846,7 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 		
     return np.array(A, dtype=int)
 
-def extract_commun(composite, actbox, event_binary, n_std, n_strongest):
+def extract_commun(composite, actbox, binary_events, n_std, n_strongest):
         x=0
     #    T, pval, mask_sig = func_mcK.Welchs_t_test(sample, full, alpha=0.01)
     #    threshold = np.reshape( mask_sig, (mask_sig.size) )
@@ -915,7 +915,7 @@ def extract_commun(composite, actbox, event_binary, n_std, n_strongest):
         # normal mean of extracted regions
         norm_mean = mean.where(mean.mask==True)
         
-        coeff_features = train_weights_LogReg(ts_regions_lag_i, event_binary)
+        coeff_features = train_weights_LogReg(ts_regions_lag_i, binary_events)
         features = np.arange(xrnpmap.min(), xrnpmap.max() + 1 ) 
         weights = npmap.copy()
         for f in features:
@@ -971,23 +971,23 @@ def extract_precursor(Prec_train, RV_train, ex, hotdaythreshold, lags, n_std, n_
                                            Prec_train.time[0].dt.hour)
         dates_train_min_lag = dates_train - pd.Timedelta(int(lag), unit='d')
         event_idx = [list(dates_train.values).index(E) for E in event_train.values]
-        event_binary = np.zeros(dates_train.size)    
-        event_binary[event_idx] = 1
-        full = Prec_train.sel(time=dates_train_min_lag)
+        binary_events = np.zeros(dates_train.size)    
+        binary_events[event_idx] = 1
+        ts_3d = Prec_train.sel(time=dates_train_min_lag)
         composite = Prec_train.sel(time=events_min_lag)
         var = ex['name']
-        actbox = np.reshape(full.values, (full.time.size, 
-                                          full.latitude.size*full.longitude.size))
+        actbox = np.reshape(ts_3d.values, (ts_3d.time.size, 
+                                          ts_3d.latitude.size*ts_3d.longitude.size))
         
         # extract communities
         pattern_atlag, commun_numbered, ts_regions_lag_i = extract_commun(
-                        composite, actbox, event_binary, n_std, n_strongest)  
+                        composite, actbox, binary_events, n_std, n_strongest)  
         
         pattern[idx] = pattern_atlag
         pattern_num[idx]  = commun_numbered
         
-        crosscorr_Sem = cross_correlation_patterns(full, pattern)
-        pattern_ts['time'] = crosscorr_Sem.time
+        crosscorr_Sem = cross_correlation_patterns(ts_3d, pattern_atlag)
+        crosscorr_Sem['time'] = pattern_ts.time
         pattern_ts[idx] = crosscorr_Sem
         # Percentile values based on training dataset
         p_pred = []
@@ -1015,9 +1015,16 @@ def train_weights_LogReg(ts_regions_lag_i, binary_events):
     
     from sklearn.linear_model import LogisticRegressionCV
     Log_out = LogisticRegressionCV(random_state=0, penalty = 'l2', solver='saga',
-                       tol = 1E-9, multi_class='ovr', max_iter=4000).fit(
+                       tol = 1E-9, multi_class='ovr', max_iter=4000,
+                       n_jobs = -1 ).fit(
                                X_train, y_train)
-#    print(Log_out.score(X_train, y_train))
+    print(Log_out.score(X_train, y_train))
+
+    Log_out = LogisticRegressionCV(random_state=None, penalty = 'l2', solver='liblinear',
+                       tol = 1E-9, multi_class='ovr', max_iter=4000,
+                       n_jobs = -1, refit=True ).fit(
+                               X_train, y_train)
+    print(Log_out.score(X_train, y_train))
 #    print(Log_out.score(X_test, y_test))
     
     
@@ -1036,7 +1043,7 @@ def train_weights_LogReg(ts_regions_lag_i, binary_events):
 
 def cross_correlation_patterns(full_timeserie, pattern):
 #    full_timeserie = precursor
-#    pattern = mcK_mean.sel(lag=lag)
+#    pattern = pattern_atlag
     mask = np.ma.make_mask(np.isnan(pattern.values)==False)
     
     n_time = full_timeserie.time.size
@@ -1084,10 +1091,10 @@ def plot_events_validation(pred1, pred2, obs, pt1, pt2, othreshold, test_year=No
 #    test_year = int(crosscorr_Sem.time.dt.year[0])
     
     def predyear(pred, obs):
-        if type(test_year) == type(int(0)):
+        if str(type(test_year)) == "<class 'numpy.int64'>" or str(type(test_year)) == 'int':
             predyear = pred1.where(pred1.time.dt.year == test_year).dropna(dim='time', how='any')
-            predyear['time'] = obs.time
             obsyear  = obs.where(obs.time.dt.year == test_year).dropna(dim='time', how='any')
+            predyear['time'] = obsyear.time
         elif type(test_year) == type(['list']):
             years_in_obs = list(obs.time.dt.year.values)
             test_years = [i for i in range(len(years_in_obs)) if years_in_obs[i] in test_year]
