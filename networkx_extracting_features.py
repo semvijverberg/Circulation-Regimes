@@ -15,7 +15,7 @@ import func_mcK
 import clustering_temporal
 from ROC_score import ROC_score
 import numpy as np
-import xarray as xr
+import xarray as xr 
 import pandas as pd
 import cartopy.crs as ccrs
 xrplot = func_mcK.xarray_plot
@@ -140,7 +140,7 @@ def plotting_wrapper(plotarr, foldername, kwrgs=None):
 #%% Divide into train and validation step
 n_runs = 1
 leave_n_years_out = 5
-lags = [30,40]
+lags = [30,40]  
 min_detection = 5
 min_events    = 1
 mcK_ROCS = []
@@ -202,11 +202,11 @@ for n in range(n_runs):
     # =============================================================================
     #  Mean over 230 hot days
     # =============================================================================
-    var_train_mcK = func_mcK.find_region(Prec_train, region='PEPrectangle')[0]
+    Prec_train_mcK = func_mcK.find_region(Prec_train, region='PEPrectangle')[0]
     
-    time = var_train_mcK.time
-    lats = var_train_mcK.latitude
-    lons = var_train_mcK.longitude
+    time = Prec_train_mcK.time
+    lats = Prec_train_mcK.latitude
+    lons = Prec_train_mcK.longitude
     pthresholds = np.linspace(1, 9, 9, dtype=int)
     
     array = np.zeros( (len(lags), len(lats), len(lons)) )
@@ -224,14 +224,14 @@ for n in range(n_runs):
     for lag in lags:
         idx = lags.index(lag)
         event_train = func_mcK.Ev_timeseries(RV_train, hotdaythreshold).time
-        event_train = func_mcK.to_datesmcK(event_train, event_train.dt.hour[0], var_train_mcK.time[0].dt.hour)
+        event_train = func_mcK.to_datesmcK(event_train, event_train.dt.hour[0], Prec_train_mcK.time[0].dt.hour)
         events_train_atlag = event_train - pd.Timedelta(int(lag), unit='d')
         dates_train_atlag = dates_train - pd.Timedelta(int(lag), unit='d')
         
 
-        pattern_atlag = var_train_mcK.sel(time=events_train_atlag).mean(dim='time')
+        pattern_atlag = Prec_train_mcK.sel(time=events_train_atlag).mean(dim='time')
         pattern[idx] = pattern_atlag 
-        ts_3d = var_train_mcK.sel(time=dates_train_atlag)
+        ts_3d = Prec_train_mcK.sel(time=dates_train_atlag)
         
         
         crosscorr = func_mcK.cross_correlation_patterns(ts_3d, pattern_atlag)
@@ -293,9 +293,9 @@ for n in range(n_runs):
         dates_min_lag = dates_test - pd.Timedelta(int(lag), unit='d')
         var_test_mcK = func_mcK.find_region(Prec_test, region='PEPrectangle')[0]
     #    full_timeserie_regmck = var_test_mcK.sel(time=dates_min_lag)
-        var_test_reg = Prec_test.sel(time=dates_min_lag)
+
         var_test_mcK = var_test_mcK.sel(time=dates_min_lag)
-        
+        var_test_reg = Prec_test.sel(time=dates_min_lag)        
 
         crosscorr_mcK = func_mcK.cross_correlation_patterns(var_test_mcK, 
                                                             ds_mcK['pattern'].sel(lag=lag))
@@ -321,8 +321,8 @@ for n in range(n_runs):
         # select test event predictand series
         RV_ts_test = RV_test
         # plot the detections
-#        func_mcK.plot_events_validation(crosscorr_Sem, crosscorr_mcK, RV_ts_test, Prec_threshold_Sem, 
-#                                        Prec_threshold_mcK, hotdaythreshold, test_year[2])
+        func_mcK.plot_events_validation(crosscorr_Sem, crosscorr_mcK, RV_ts_test, Prec_threshold_Sem, 
+                                        Prec_threshold_mcK, hotdaythreshold, test_year[0])
 
 
         if Prec_det_mcK == True:
