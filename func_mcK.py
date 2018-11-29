@@ -848,113 +848,113 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 
 def extract_commun(composite, ts_3d, binary_events, n_std, n_strongest):
     x=0
-#    T, pval, mask_sig = func_mcK.Welchs_t_test(sample, full, alpha=0.01)
+#    T, pval, mask_sig = Welchs_t_test(sample, full, alpha=0.01)
 #    threshold = np.reshape( mask_sig, (mask_sig.size) )
 #    mask_threshold = threshold 
 #    plt.figure()
 #    plt.imshow(mask_sig)
     # divide train set into train-feature and train-weights part:
 #%% 
-    for i in range(20):
-        full_years  = list(ts_3d.time.dt.year.values)
-        comp_years = list(composite.time.dt.year.values)
-        
-        all_yrs_set = list(set(ts_3d.time.dt.year.values))
-        randyrs_trainfeat = np.random.choice(all_yrs_set, int(len(all_yrs_set)/2), replace=False)
-        randyrs_fitwgts = [yr for yr in all_yrs_set if yr not in randyrs_trainfeat]
-        
-        yrs_fitwghts = [i for i in range(len(full_years)) if full_years[i] in randyrs_fitwgts]
-        yrs_trainfeat =  [i for i in range(len(comp_years)) if comp_years[i] in randyrs_trainfeat]
+#    for i in range(20):
+    full_years  = list(ts_3d.time.dt.year.values)
+    comp_years = list(composite.time.dt.year.values)
     
-    #    # ts_3d only for concomitant trainfeature
-    #    ts_3d_fitwghts = ts_3d.isel(time=yrs_trainfeat)
-    #    bin_event_fitwghts = binary_events[yrs_trainfeat] #!!
-        # ts_3d only for train-weights part
-        ts_3d_fitwghts = ts_3d.isel(time=yrs_fitwghts)
-        bin_event_fitwghts = binary_events[yrs_fitwghts]
-    #    # ts_3d only for total time series
-    #    ts_3d_fitwghts = ts_3d
-    #    bin_event_fitwghts = binary_events
-        
-        # composite taken only over train feature part
-        mean = composite.isel(time=yrs_trainfeat).mean(dim='time')
-        nparray = np.reshape(np.nan_to_num(mean.values), mean.size)
-        threshold = n_std * np.std(nparray)
-        mask_threshold = abs(nparray) < ( threshold )
-        
-        Comp_masked = np.ma.MaskedArray(nparray, mask=mask_threshold)
-        lat_grid = mean.latitude.values
-        lon_grid = mean.longitude.values
-    #        if Corr_Coeff.ndim == 1:
-    #            lag_steps = 1
-    #            n_rows = 1
-    #        else:
-    #            lag_steps = Corr_Coeff.shape[1]
-    #            n_rows = Corr_Coeff.shape[1]
+    all_yrs_set = list(set(ts_3d.time.dt.year.values))
+    randyrs_trainfeat = np.random.choice(all_yrs_set, int(len(all_yrs_set)/2), replace=False)
+    randyrs_fitwgts = [yr for yr in all_yrs_set if yr not in randyrs_trainfeat]
     
-        
-        Regions_lag_i = define_regions_and_rank_new(Comp_masked, lat_grid, lon_grid)
-        
-        actbox = np.reshape(ts_3d_fitwghts.values, (ts_3d_fitwghts.time.size, 
-                      ts_3d_fitwghts.latitude.size*ts_3d_fitwghts.longitude.size))    
+    yrs_fitwghts = [i for i in range(len(full_years)) if full_years[i] in randyrs_fitwgts]
+    yrs_trainfeat =  [i for i in range(len(comp_years)) if comp_years[i] in randyrs_trainfeat]
+
+#    # ts_3d only for concomitant trainfeature
+#    ts_3d_fitwghts = ts_3d.isel(time=yrs_trainfeat)
+#    bin_event_fitwghts = binary_events[yrs_trainfeat] #!!
+    # ts_3d only for train-weights part
+#    ts_3d_fitwghts = ts_3d.isel(time=yrs_fitwghts)
+#    bin_event_fitwghts = binary_events[yrs_fitwghts]
+#    # ts_3d only for total time series
+    ts_3d_fitwghts = ts_3d
+    bin_event_fitwghts = binary_events
     
-        # get lonlat array of area for taking spatial means 
-        lons_gph, lats_gph = np.meshgrid(lon_grid, lat_grid)
-        cos_box = np.cos(np.deg2rad(lats_gph))
-        cos_box_array = np.repeat(cos_box[None,:], actbox.shape[0], 0)
-        cos_box_array = np.reshape(cos_box_array, (cos_box_array.shape[0], -1))
-        
-        # Regions are iteratively counted starting from first lag (R0) to last lag R(-1)
-        # adapt numbering of different communities/Regions to account for multiple
-        if Regions_lag_i.max()> 0:
-            n_regions_lag_i = int(Regions_lag_i.max())	
-            A_r = np.reshape(Regions_lag_i, (lat_grid.size, lon_grid.size))
-            A_r + x
-        x = A_r.max() 
+    # composite taken only over train feature part
+    mean = composite.isel(time=yrs_trainfeat).mean(dim='time')
+    nparray = np.reshape(np.nan_to_num(mean.values), mean.size)
+    threshold = n_std * np.std(nparray)
+    mask_threshold = abs(nparray) < ( threshold )
     
-        # if there are less regions that are desired, the n_strongest is lowered
-        if n_regions_lag_i < n_strongest:
-            n_strongest = n_regions_lag_i
-            
+    Comp_masked = np.ma.MaskedArray(nparray, mask=mask_threshold)
+    lat_grid = mean.latitude.values
+    lon_grid = mean.longitude.values
+#        if Corr_Coeff.ndim == 1:
+#            lag_steps = 1
+#            n_rows = 1
+#        else:
+#            lag_steps = Corr_Coeff.shape[1]
+#            n_rows = Corr_Coeff.shape[1]
+
     
-        # this array will be the time series for each feature
-        ts_regions_lag_i = np.zeros((actbox.shape[0], n_strongest))
+    Regions_lag_i = define_regions_and_rank_new(Comp_masked, lat_grid, lon_grid)
+    
+    actbox = np.reshape(ts_3d_fitwghts.values, (ts_3d_fitwghts.time.size, 
+                  ts_3d_fitwghts.latitude.size*ts_3d_fitwghts.longitude.size))    
+
+    # get lonlat array of area for taking spatial means 
+    lons_gph, lats_gph = np.meshgrid(lon_grid, lat_grid)
+    cos_box = np.cos(np.deg2rad(lats_gph))
+    cos_box_array = np.repeat(cos_box[None,:], actbox.shape[0], 0)
+    cos_box_array = np.reshape(cos_box_array, (cos_box_array.shape[0], -1))
+    
+    # Regions are iteratively counted starting from first lag (R0) to last lag R(-1)
+    # adapt numbering of different communities/Regions to account for multiple
+    if Regions_lag_i.max()> 0:
+        n_regions_lag_i = int(Regions_lag_i.max())	
+        A_r = np.reshape(Regions_lag_i, (lat_grid.size, lon_grid.size))
+        A_r + x
+    x = A_r.max() 
+
+    # if there are less regions that are desired, the n_strongest is lowered
+    if n_regions_lag_i < n_strongest:
+        n_strongest = n_regions_lag_i
         
-        # calculate area-weighted mean over features
-        for j in range(n_strongest):
-            B = np.zeros(Regions_lag_i.shape)
-            B[Regions_lag_i == j+1] = 1	
-            ts_regions_lag_i[:,j] = np.mean(actbox[:, B == 1] * cos_box_array[:, B == 1], axis =1)
-        
-        
-        # creating arrays of output
-        npmap = np.ma.reshape(Regions_lag_i, (len(lat_grid), len(lon_grid)))
-        mask_strongest = (npmap!=0.) & (npmap <= n_strongest)
-        npmap[mask_strongest==False] = 0
-        xrnpmap = mean.copy()
-        xrnpmap.values = npmap
-        
-        mask = (('latitude', 'longitude'), mask_strongest)
-        mean.coords['mask'] = mask
-        xrnpmap.coords['mask'] = mask
-        xrnpmap = xrnpmap.where(xrnpmap.mask==True)
-        # normal mean of extracted regions
-        norm_mean = mean.where(mean.mask==True)
-        
-        coeff_features = train_weights_LogReg(ts_regions_lag_i, bin_event_fitwghts)
-        # standardize coefficients
-        coeff_features = (coeff_features - np.mean(coeff_features)) / np.std(coeff_features)
-        features = np.arange(xrnpmap.min(), xrnpmap.max() + 1 ) 
-        weights = npmap.copy()
-        for f in features:
-            mask_single_feature = (npmap==f)
-            weight = int(round(coeff_features[int(f-1)], 2))
-            np.place(arr=weights, mask=mask_single_feature, vals=weight)
-    #            weights = weights/weights.max()
-        
-        weighted_mean = norm_mean * abs(weights)
-        plt.figure()
-        weighted_mean.plot()
+
+    # this array will be the time series for each feature
+    ts_regions_lag_i = np.zeros((actbox.shape[0], n_strongest))
+    
+    # calculate area-weighted mean over features
+    for j in range(n_strongest):
+        B = np.zeros(Regions_lag_i.shape)
+        B[Regions_lag_i == j+1] = 1	
+        ts_regions_lag_i[:,j] = np.mean(actbox[:, B == 1] * cos_box_array[:, B == 1], axis =1)
+    
+    
+    # creating arrays of output
+    npmap = np.ma.reshape(Regions_lag_i, (len(lat_grid), len(lon_grid)))
+    mask_strongest = (npmap!=0.) & (npmap <= n_strongest)
+    npmap[mask_strongest==False] = 0
+    xrnpmap = mean.copy()
+    xrnpmap.values = npmap
+    
+    mask = (('latitude', 'longitude'), mask_strongest)
+    mean.coords['mask'] = mask
+    xrnpmap.coords['mask'] = mask
+    xrnpmap = xrnpmap.where(xrnpmap.mask==True)
+    # normal mean of extracted regions
+    norm_mean = mean.where(mean.mask==True)
+    
+    coeff_features = train_weights_LogReg(ts_regions_lag_i, bin_event_fitwghts)
+    # standardize coefficients
+    coeff_features = (coeff_features - np.mean(coeff_features)) / np.std(coeff_features)
+    features = np.arange(xrnpmap.min(), xrnpmap.max() + 1 ) 
+    weights = npmap.copy()
+    for f in features:
+        mask_single_feature = (npmap==f)
+        weight = int(round(coeff_features[int(f-1)], 2))
+        np.place(arr=weights, mask=mask_single_feature, vals=weight)
+#            weights = weights/weights.max()
+    
+    weighted_mean = norm_mean * abs(weights)
+#    plt.figure()
+#    weighted_mean.plot()
     #%%
     return weighted_mean, xrnpmap, ts_regions_lag_i
 
@@ -1042,17 +1042,17 @@ def train_weights_LogReg(ts_regions_lag_i, binary_events):
 #    print(Log_out.score(X_test, y_test))
     
     from sklearn.linear_model import LogisticRegressionCV
-    Log_out = LogisticRegressionCV(random_state=0, penalty = 'l2', solver='saga',
-                       tol = 1E-9, multi_class='ovr', max_iter=8000,
-                       n_jobs = -1 ).fit(
-                               X_train, y_train)
-    print(Log_out.score(X_train, y_train))
+#    Log_out = LogisticRegressionCV(random_state=0, penalty = 'l2', solver='saga',
+#                       tol = 1E-9, multi_class='ovr', max_iter=8000,
+#                       n_jobs = -1 ).fit(
+#                               X_train, y_train)
+#    print(Log_out.score(X_train, y_train))
 
     Log_out = LogisticRegressionCV(random_state=None, penalty = 'l2', solver='liblinear',
                        tol = 1E-9, multi_class='ovr', max_iter=8000,
                        n_jobs = -1, refit=True ).fit(
                                X_train, y_train)
-    print(Log_out.score(X_train, y_train))
+#    print(Log_out.score(X_train, y_train))
 #    print(Log_out.score(X_test, y_test))
     
     
@@ -1184,3 +1184,71 @@ def plot_events_validation(pred1, pred2, obs, pt1, pt2, othreshold, test_year=No
     for days in pd.to_datetime(TP2):
         ax3.axvline(x=pd.to_datetime(days), color='green', alpha=1.)
     ax3.legend()
+
+def rand_traintest(RV_ts, Prec_reg, leave_n_years_out, min_events, ex):
+    all_years = np.arange(ex['startyear'], ex['endyear']+1)
+    
+    # conditions failed initally assumed True
+    a_conditions_failed = True
+    while a_conditions_failed == True:
+        
+        a_conditions_failed = False
+        # Divide into random sampled 25 year for train & rest for test
+    #        n_years_sampled = int((ex['endyear'] - ex['startyear']+1)*0.66)
+        
+        rand_test_years = np.random.choice(all_years, leave_n_years_out, replace=False)
+    
+            
+        # test duplicates
+        a_conditions_failed = (len(set(rand_test_years)) != leave_n_years_out)
+        # Update random years to be selected as test years:
+    #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
+        rand_train_years = [yr for yr in all_years if yr not in rand_test_years]
+        
+    #            datesRV = pd.to_datetime(RV_ts.time.values)
+    #            matchdatesRV = to_datesmcK(datesRV, datesRV[0].hour, Prec_reg.time[0].dt.hour)
+    #            RV_dates = list(matchdatesRV.time.dt.year.values)
+        full_years  = list(Prec_reg.time.dt.year.values)
+        RV_years  = list(RV_ts.time.dt.year.values)
+        
+    #            RV_dates_train_idx = [i for i in range(len(RV_dates)) if RV_dates[i] in rand_train_years]
+        Prec_train_idx = [i for i in range(len(full_years)) if full_years[i] in rand_train_years]
+        RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_train_years]
+        
+    #            RV_dates_test_idx = [i for i in range(len(RV_dates)) if RV_dates[i] in rand_test_years]
+        Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
+        RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
+        
+        
+    #            dates_train = matchdatesRV.isel(time=RV_dates_train_idx)
+        Prec_train = Prec_reg.isel(time=Prec_train_idx)
+        RV_train = RV_ts.isel(time=RV_train_idx)
+        
+    #    if len(RV_dates_test_idx) 
+    #            dates_test = matchdatesRV.isel(time=RV_dates_test_idx)
+        Prec_test = Prec_reg.isel(time=Prec_test_idx)
+        RV_test = RV_ts.isel(time=RV_test_idx)
+        
+        event_train = Ev_timeseries(RV_train, ex['hotdaythreshold']).time
+        event_test = Ev_timeseries(RV_test, ex['hotdaythreshold']).time
+        
+        test_years = [yr for yr in list(set(RV_years)) if yr in rand_test_years]
+        
+        ave_events_pyr = (len(event_train) + len(event_test))/len(all_years)
+        exp_events     = int(ave_events_pyr) * len(rand_test_years)
+        tolerance      = 0.2 * exp_events
+        diff           = abs(len(event_test) - exp_events)
+        
+        print('test year is {}, with {} events'.format(test_years, len(event_test)))
+        if diff > tolerance: 
+            print('not a representative sample, drawing new sample')
+            a_conditions_failed = True
+                   
+        
+        train = dict( {    'Prec'  : Prec_train,
+                           'RV'    : RV_train,
+                           'events' : event_train})
+        test = dict( {     'Prec'  : Prec_test,
+                           'RV'    : RV_test,
+                           'events' : event_test})
+    return train, test, test_years
