@@ -5,7 +5,8 @@ Created on Tue Jul 10 11:51:50 2018
 
 @author: semvijverberg
 """
-import os
+import os, sys
+os.sys.path
 os.chdir('/Users/semvijverberg/surfdrive/Scripts/Circulation-Regimes')
 script_dir = os.getcwd()
 import functions
@@ -15,6 +16,7 @@ import what_variable_pp
 import xarray as xr
 import pandas as pd
 from netCDF4 import num2date
+import functions_pp
 import pickle
 Variable = what_variable_pp.Variable
 import_array = functions.import_array
@@ -24,22 +26,70 @@ xarray_plot = plotting.xarray_plot
 LamberConformal = plotting.LamberConformal
 find_region = plotting.find_region
 
-# load post processed data
-#path = '/Users/semvijverberg/surfdrive/Data_ERAint/t2m_u_m4-8_dt10/1jun-24aug_2.5natearth_with_US_mask/'
-#ex = np.load(os.path.join(path, 'input_dic_part_1.npy')).item()
-new = '/Users/semvijverberg/surfdrive/Data_ERAint/t2mmax_sst_m3-08_dt14/1jun-24aug_averAggljacc_tf14_n8_lag1-1/input_dic_part_1.npy'
-ex = np.load(new, encoding='latin1').item()
-#ex = np.load(filename_exp_design1, encoding='latin1').item()
-RV_name = 't2mmax'
-RV = ex[RV_name]
-print('tfreq of ex dic: {} days'.format(ex['tfreq']))
+base_path = "/Users/semvijverberg/surfdrive/Data_ERAint/"
+path_raw = os.path.join(base_path, 'input_raw')
+path_pp  = os.path.join(base_path, 'input_pp')
+if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
+if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
+
+# *****************************************************************************
+# Step 1 Create dictionary and variable class (and optionally download ncdfs)
+# *****************************************************************************
+# The dictionary is used as a container with all information for the experiment
+# The dic is saved after the post-processes step, so you can continue the experiment
+# from this point onward with different configurations. It also stored as a log
+# in the final output.
+#
+ex = dict(
+     {'vars'        :       [['t2mmax']],
+      'dataset'     :       'ERA-i',
+     'grid_res'     :       2.5,
+     'startyear'    :       1979, # download startyear
+     'endyear'      :       2017, # download endyear
+     'startmonth'   :       1,
+     'endmonth'     :       1,
+     'base_path'    :       base_path,
+     'path_raw'     :       path_raw,
+     'path_pp'      :       path_pp,
+     'tfreq'        :       14,
+     'RV_months'    :       [5,6,7,8]}
+     )
+
+ex['sstartdate'] = '{}-01-1'.format(ex['startyear'])
+ex['senddate']   = '{}-08-31'.format(ex['startyear'])
+ex['RVnc_name'] = [ex['vars'][0][0], '{}_1979-2017_1_12_daily_2.5deg.nc'.format(ex['vars'][0][0])]
+
+
+
+
+RV = functions_pp.Var_import_RV_netcdf(ex)
+ex[ex['RVnc_name'][0]] = RV
+
+
+
+functions_pp.perform_post_processing(ex)
+#%%
+RV = ex[ex['RVnc_name'][0]]
+RV_period = []
+for mon in ex['RV_months']:
+    # append the indices of each year corresponding to your RV period
+    RV_period.insert(-1, np.where(RV.dates.month == mon)[0] )
+RV_period = [x for sublist in RV_period for x in sublist]
+RV_period.sort()
+ex['RV_period'] = RV_period
+RV.datesRV = RV.dates[RV_period]
+
+# import array
+marray, temperature = functions.import_array(RV, path='pp')
+
 
 # =============================================================================
 # Get binary timeseries of when gridcells exceed 95th percentile
 # and convert to station versus time format (dendogram)
 # =============================================================================
-marray, temperature = functions.import_array(RV, path='pp')
 
+    
+#print('tfreq of ex dic: {} days'.format(ex['tfreq']))
 #%%
 # add mask to marray:
 path_masks = os.path.join('/Users/semvijverberg/surfdrive/Scripts/rasterio', 
@@ -53,10 +103,13 @@ US_mask['longitude'] = nor_lon
 #US_mask['latitude'] = nor_lat
 plotting.xarray_mask_plot(US_mask)
 #%%
-marray.coords['mask'] = (('latitude','longitude'), US_mask.mask)
+# select RV period for temporal clustering
+tmaxRVperiod = marray.isel(time=ex['RV_period'])
+McKts = functions.Mckin_timeseries(tmaxRVperiod, RV)
+McKts.coords['mask'] = (('latitude','longitude'), US_mask.mask)
 tmaxRVperiod = marray.isel(time=ex['RV_period'])
 
-McKts = functions.Mckin_timeseries(tmaxRVperiod, RV)
+
 
 
 # =============================================================================
@@ -78,16 +131,16 @@ ex['linkage'] = linkage[1]
 data = McKts
 n_clusters =8
 # Create mask of cluster
-output = functions.clustering_spatial(McKts, ex, n_clusters, region, RV)
-selclus = 3
+output = functions.clustering_spatial(McKts, ex, n_clusters, region)
+selclus = 1
 mask1 = np.array(np.nan_to_num(output.where(output == selclus)), dtype=bool)
-selclus = 3
+selclus = 1
 mask2 = np.array(np.nan_to_num(output.where(output == selclus)), dtype=bool)
 mask1[mask2] = True
 mask = mask1
 tmaxRVperiod.coords['mask'] = (('latitude','longitude'), mask)
 
-def add_mask_to_ncdf(file_name, mask):
+def add_mask_to_ncdf(file_name, mask, ex):
     # =============================================================================
     # # Load geopotential Height
     # =============================================================================
@@ -104,7 +157,14 @@ def add_mask_to_ncdf(file_name, mask):
     RV_array.name = var
     RV_array['time'] = dates
     RV_array.coords['mask'] = (('latitude','longitude'), mask)
-    RVfullts = RV_array.where(RV_array.mask ==True).mean(dim=['latitude','longitude']).squeeze()
+    lats = RV_array.latitude.values
+    cos_box = np.cos(np.deg2rad(lats))
+    cos_box_array = np.tile(cos_box, (RV_array.longitude.size,1) )
+    weights_box = np.swapaxes(cos_box_array, 1,0)
+    weights_box = weights_box / np.mean(weights_box)
+    RVarray_w = weights_box[None,:,:] * RV_array
+    RVfullts = (RVarray_w).where(RV_array.mask).mean(
+                                    dim=['latitude','longitude']).squeeze()
     RVoneyr = RVfullts.where(dates.year == ex['startyear']).dropna(dim='time', how='all')
     # matching RV period
     def finddateidx(date, oneyr):
@@ -125,12 +185,16 @@ def add_mask_to_ncdf(file_name, mask):
     return RV_array, RVfullts, RVts, new_RV_period
 
 # make tmax RV:
-RV_array, RVfullts, RVts, new_RV_period = add_mask_to_ncdf(RV.filename_pp, mask)
+#RV_array, RVfullts, RVts, new_RV_period = add_mask_to_ncdf(RV.filename_pp, mask, ex)
 
-#file_name = 'z_1979-2017_2mar_31aug_dt-1days_2.5deg.nc'
-#RV_array, RVfullts, RVts, new_RV_period = add_mask_to_ncdf(file_name, mask)
+
 
 #%%
+#ex['RVnc_name'] = [ex['vars'][0][0], '{}_1979-2017_1_12_daily_2.5deg.nc'.format(ex['vars'][0][0])]
+var_name = 'rv'
+file_name = '{}_1979-2017_2jan_31aug_dt-1days_2.5deg.nc'.format(var_name)
+RV_array, RVfullts, RVts, new_RV_period = add_mask_to_ncdf(file_name, mask, ex)
+
 var = RV_array.name ; tfreq = file_name[file_name.index('days')-1] 
 RV_array.attrs['units'] = 'Geopotential Height [m]'
 z_data = RV_array.isel(time=new_RV_period)
@@ -181,8 +245,8 @@ plotting.xarray_plot(z_meanplot_norm, path=folder, saving=True)
 #%%
 months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',
                 7:'jul',8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
-RV_name_range = '{}{}-{}{}_'.format(RV.datesRV[0].day, months[RV.datesRV.month[0]], 
-                 RV.datesRV[-1].day, months[RV.datesRV.month[-1]] )
+RV_name_range = '{}{}-{}{}_'.format(RV.dates[0].day, months[RV.dates.month[0]], 
+                 RV.dates[-1].day, months[RV.dates.month[-1]] )
 
 ex['path_exp_periodmask'] = os.path.join(RV.base_path, ex['exp_pp'], 
                               RV_name_range + ex['linkage'][:4] + ex['clusmethod'][:4] + 

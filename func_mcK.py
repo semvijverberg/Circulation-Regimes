@@ -634,7 +634,7 @@ def varimax_PCA_sem(xarray, max_comps):
     return xrarray_patterns
 
 
-def mcKmean(train, hotdaythreshold, ex, lags):
+def mcKmean(train, ex):
 
     Prec_train_mcK = find_region(train['Prec'], region='PEPrectangle')[0]
     dates_train = to_datesmcK(train['RV'].time, train['RV'].time.dt.hour[0], 
@@ -644,21 +644,21 @@ def mcKmean(train, hotdaythreshold, ex, lags):
     lons = Prec_train_mcK.longitude
     pthresholds = np.linspace(1, 9, 9, dtype=int)
     
-    array = np.zeros( (len(lags), len(lats), len(lons)) )
-    pattern = xr.DataArray(data=array, coords=[lags, lats, lons], 
+    array = np.zeros( (len(ex['lags']), len(lats), len(lons)) )
+    pattern = xr.DataArray(data=array, coords=[ex['lags'], lats, lons], 
                           dims=['lag','latitude','longitude'], name='McK_Composite_diff_lags',
                           attrs={'units':'Kelvin'})
-    array = np.zeros( (len(lags), len(dates_train)) )
-    pattern_ts = xr.DataArray(data=array, coords=[lags, dates_train], 
+    array = np.zeros( (len(ex['lags']), len(dates_train)) )
+    pattern_ts = xr.DataArray(data=array, coords=[ex['lags'], dates_train], 
                           dims=['lag','time'], name='McK_mean_ts_diff_lags',
                           attrs={'units':'Kelvin'})
     
-    array = np.zeros( (len(lags), len(pthresholds)) )
-    pattern_p = xr.DataArray(data=array, coords=[lags, pthresholds], 
+    array = np.zeros( (len(ex['lags']), len(pthresholds)) )
+    pattern_p = xr.DataArray(data=array, coords=[ex['lags'], pthresholds], 
                           dims=['lag','percentile'], name='McK_mean_p_diff_lags')
-    for lag in lags:
-        idx = lags.index(lag)
-        event_train = Ev_timeseries(train['RV'], hotdaythreshold).time
+    for lag in ex['lags']:
+        idx = ex['lags'].index(lag)
+        event_train = Ev_timeseries(train['RV'], ex['hotdaythres']).time
         event_train = to_datesmcK(event_train, event_train.dt.hour[0], Prec_train_mcK.time[0].dt.hour)
         events_train_atlag = event_train - pd.Timedelta(int(lag), unit='d')
         dates_train_atlag = dates_train - pd.Timedelta(int(lag), unit='d')
@@ -680,42 +680,42 @@ def mcKmean(train, hotdaythreshold, ex, lags):
     ds_mcK = xr.Dataset( {'pattern' : pattern, 'ts' : crosscorr, 'perc' : pattern_p} )
     return ds_mcK
 
-def extract_precursor(train, ex, hotdaythreshold, lags, n_std, n_strongest):
+def extract_precursor(train, ex):
     
     time = train['RV'].time
     lats = train['Prec'].latitude
     lons = train['Prec'].longitude
     pthresholds = np.linspace(1, 9, 9, dtype=int)
     
-    array = np.zeros( (len(lags), len(lats), len(lons)) )
-    pattern = xr.DataArray(data=array, coords=[lags, lats, lons], 
+    array = np.zeros( (len(ex['lags']), len(lats), len(lons)) )
+    pattern = xr.DataArray(data=array, coords=[ex['lags'], lats, lons], 
                           dims=['lag','latitude','longitude'], name='communities_composite',
                           attrs={'units':'Kelvin'})
 
     
-    array = np.zeros( (len(lags), len(lats), len(lons)) )
-    pattern_num = xr.DataArray(data=array, coords=[lags, lats, lons], 
+    array = np.zeros( (len(ex['lags']), len(lats), len(lons)) )
+    pattern_num = xr.DataArray(data=array, coords=[ex['lags'], lats, lons], 
                           dims=['lag','latitude','longitude'], name='communities_numbered', 
                           attrs={'units':'regions'})
     
-    array = np.zeros( (len(lags), len(time)) )
-    pattern_ts = xr.DataArray(data=array, coords=[lags, time], 
+    array = np.zeros( (len(ex['lags']), len(time)) )
+    pattern_ts = xr.DataArray(data=array, coords=[ex['lags'], time], 
                           dims=['lag','time'], name='Sem_mean_ts_diff_lags',
                           attrs={'units':'Kelvin'})
 
-    array = np.zeros( (len(lags), len(pthresholds)) )
-    pattern_p = xr.DataArray(data=array, coords=[lags, pthresholds], 
+    array = np.zeros( (len(ex['lags']), len(pthresholds)) )
+    pattern_p = xr.DataArray(data=array, coords=[ex['lags'], pthresholds], 
                           dims=['lag','percentile'], name='Sem_mean_p_diff_lags')
 
     
     
-    Actors_ts_GPH = [[] for i in lags] #!
+    Actors_ts_GPH = [[] for i in ex['lags']] #!
     
     x = 0
-    for lag in lags:
-#            i = lags.index(lag)
-        idx = lags.index(lag)
-        event_train = Ev_timeseries(train['RV'], hotdaythreshold).time
+    for lag in ex['lags']:
+#            i = ex['lags'].index(lag)
+        idx = ex['lags'].index(lag)
+        event_train = Ev_timeseries(train['RV'], ex['hotdaythres']).time
         event_train = to_datesmcK(event_train, event_train.dt.hour[0], 
                                            train['Prec'].time[0].dt.hour)
         events_min_lag = event_train - pd.Timedelta(int(lag), unit='d')
@@ -730,7 +730,7 @@ def extract_precursor(train, ex, hotdaythreshold, lags, n_std, n_strongest):
         
         # extract communities
         pattern_atlag, commun_numbered, ts_regions_lag_i = extract_commun(
-                        composite, ts_3d, binary_events, n_std, n_strongest)  
+                        composite, ts_3d, binary_events, ex)  
         
         pattern[idx] = pattern_atlag
         pattern_num[idx]  = commun_numbered
@@ -749,7 +749,7 @@ def extract_precursor(train, ex, hotdaythreshold, lags, n_std, n_strongest):
     return ds_Sem
 
 
-def extract_commun(composite, ts_3d, binary_events, n_std, n_strongest):
+def extract_commun(composite, ts_3d, binary_events, ex):
     x=0
 #    T, pval, mask_sig = Welchs_t_test(sample, full, alpha=0.01)
 #    threshold = np.reshape( mask_sig, (mask_sig.size) )
@@ -803,7 +803,7 @@ def extract_commun(composite, ts_3d, binary_events, n_std, n_strongest):
     mean = StoN_wghts
     
     nparray = np.reshape(np.nan_to_num(mean.values), mean.size)
-    threshold = n_std * np.std(nparray)
+    threshold = ex['n_std'] * np.std(nparray)
     mask_threshold = abs(nparray) < ( threshold )
     
     Corr_Coeff = np.ma.MaskedArray(nparray, mask=mask_threshold)
@@ -839,15 +839,15 @@ def extract_commun(composite, ts_3d, binary_events, n_std, n_strongest):
     x = A_r.max() 
 
     # if there are less regions that are desired, the n_strongest is lowered
-    if n_regions_lag_i <= n_strongest:
-        n_strongest = n_regions_lag_i
+    if n_regions_lag_i <= ex['n_strongest']:
+        ex['n_strongest'] = n_regions_lag_i
         
 
     # this array will be the time series for each feature
-    ts_regions_lag_i = np.zeros((actbox.shape[0], n_strongest))
+    ts_regions_lag_i = np.zeros((actbox.shape[0], ex['n_strongest']))
     
     # calculate area-weighted mean over features
-    for j in range(n_strongest):
+    for j in range(ex['n_strongest']):
         # start with empty lonlat array
         B = np.zeros(Regions_lag_i.shape)
         # Mask everything except region of interest
@@ -858,7 +858,7 @@ def extract_commun(composite, ts_3d, binary_events, n_std, n_strongest):
     
     # creating arrays of output
     npmap = np.ma.reshape(Regions_lag_i, (len(lat_grid), len(lon_grid)))
-    mask_strongest = (npmap!=0.) & (npmap <= n_strongest)
+    mask_strongest = (npmap!=0.) & (npmap <= ex['n_strongest'])
     npmap[mask_strongest==False] = 0
     xrnpmap = mean.copy()
     xrnpmap.values = npmap
@@ -1216,7 +1216,7 @@ def plot_events_validation(pred1, pred2, obs, pt1, pt2, othreshold, test_year=No
 #    obs = RV_ts_test
 #    pt1 = Prec_threshold_Sem
 #    pt2 = Prec_threshold_mcK
-#    othreshold = hotdaythreshold
+#    othreshold = ex['hotdaythres']
 #    test_year = int(crosscorr_Sem.time.dt.year[0])
     
     def predyear(pred, obs):
@@ -1286,7 +1286,7 @@ def plot_events_validation(pred1, pred2, obs, pt1, pt2, othreshold, test_year=No
         ax3.axvline(x=pd.to_datetime(days), color='green', alpha=1.)
     ax3.legend()
 
-def rand_traintest(RV_ts, Prec_reg, leave_n_years_out, min_events, ex):
+def rand_traintest(RV_ts, Prec_reg, ex):
     all_years = np.arange(ex['startyear'], ex['endyear']+1)
     
     # conditions failed initally assumed True
@@ -1297,11 +1297,11 @@ def rand_traintest(RV_ts, Prec_reg, leave_n_years_out, min_events, ex):
         # Divide into random sampled 25 year for train & rest for test
     #        n_years_sampled = int((ex['endyear'] - ex['startyear']+1)*0.66)
         
-        rand_test_years = np.random.choice(all_years, leave_n_years_out, replace=False)
+        rand_test_years = np.random.choice(all_years, ex['leave_n_years_out'], replace=False)
     
             
         # test duplicates
-        a_conditions_failed = (len(set(rand_test_years)) != leave_n_years_out)
+        a_conditions_failed = (len(set(rand_test_years)) != ex['leave_n_years_out'])
         # Update random years to be selected as test years:
     #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
         rand_train_years = [yr for yr in all_years if yr not in rand_test_years]
@@ -1330,8 +1330,8 @@ def rand_traintest(RV_ts, Prec_reg, leave_n_years_out, min_events, ex):
         Prec_test = Prec_reg.isel(time=Prec_test_idx)
         RV_test = RV_ts.isel(time=RV_test_idx)
         
-        event_train = Ev_timeseries(RV_train, ex['hotdaythreshold']).time
-        event_test = Ev_timeseries(RV_test, ex['hotdaythreshold']).time
+        event_train = Ev_timeseries(RV_train, ex['hotdaythres']).time
+        event_test = Ev_timeseries(RV_test, ex['hotdaythres']).time
         
         test_years = [yr for yr in list(set(RV_years)) if yr in rand_test_years]
         
