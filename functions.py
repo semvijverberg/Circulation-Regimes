@@ -197,7 +197,7 @@ def clustering_temporal(data, ex, n_clusters, cls, tfreq, region):
     import numpy as np
     import os
     input = data.squeeze()
-
+    
     def clustering_plotting(cluster_method, input):    
         region_values, region_coords = plotting.find_region(input, region=region)
 #        region_values = input.where(input.mask == True)
@@ -235,27 +235,24 @@ def clustering_temporal(data, ex, n_clusters, cls, tfreq, region):
         group_clusters = group_clusters.drop('mask')
         labels = []
         for n in range(0,n_clusters):
-            folder = os.path.join(cls.base_path,'Clustering_temporal/',
-                              '{}deg_tfreq{}'.format(ex['grid_res'],tfreq),
-                              name_method +'_'+ region)
-            if os.path.isdir(folder):
+            if os.path.isdir(ex['folder']):
                 pass
             else:
-                os.makedirs(folder)
+                os.makedirs(ex['folder'])
             perc_of_cluster = str(100*float(output.sel(cluster=n).time_date.size)/float(input.time.size))[:2]+'%'
             Nocluster['cluster_{}'.format(n)] = perc_of_cluster
             cluster_n = group_clusters.sel(cluster=n)
             cluster_n.name = '{}_cl_{}of{}_{}_tf{}_{}'.format(data.name, n, n_clusters, 
                               perc_of_cluster, tfreq, name_method)
             labels.append('cluster {}, {}'.format(n, perc_of_cluster))
-            plotting.xarray_plot(cluster_n, path=folder, saving=True)
+            plotting.xarray_plot(cluster_n, path=ex['folder'], saving=True)
         # updating name (name of saved figure)
         group_clusters.name = '{}_{}_clusters_tf{}_{}'.format(data.name, n_clusters, 
                               tfreq, name_method)
         # updating labels (name of title in figure)
         group_clusters['cluster'] = xr.DataArray(labels, dims='cluster')
         plotting.PlateCarree_timesteps(group_clusters.rename({'cluster':'time'}), cls, 
-                                       path=folder, region=region, saving=True)
+                                       path=ex['folder'], region=region, saving=True)
 
         return output
   

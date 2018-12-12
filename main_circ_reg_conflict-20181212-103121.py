@@ -6,12 +6,9 @@ Created on Tue Jul 10 11:51:50 2018
 @author: semvijverberg
 """
 import os, sys
-# also importing pre procces function from RGCPD
-os.sys.path.append('/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD')
+os.sys.path
 os.chdir('/Users/semvijverberg/surfdrive/Scripts/Circulation-Regimes')
 script_dir = os.getcwd()
-if sys.version[:1] == '3':
-    from importlib import reload as rel
 import functions
 import numpy as np
 import plotting
@@ -61,16 +58,16 @@ ex = dict(
 
 ex['sstartdate'] = '{}-01-1'.format(ex['startyear'])
 ex['senddate']   = '{}-08-31'.format(ex['startyear'])
+ex['RVnc_name'] = [ex['vars'][0][0], 
+                   '{}_1979-2017_1_12_daily_2.5deg.nc'.format(ex['vars'][0][0])]
+ex['precursor_ncdf'] = [['rv', 
+                   'rv_1979-2017_1_12_daily_2.5deg.nc']]
 
-ex['RVnc_name'] = [ex['vars'][0][0], '{}_1979-2017_1_12_daily_2.5deg.nc'.format(ex['vars'][0][0])]
-
-#ex['precursor_ncdf'] = [['rv', 'rv_1979-2017_1_12_daily_2.5deg.nc']]
-#ex['precursor_ncdf'] = [['z', 'z_1979-2017_1_12_daily_2.5deg.nc']]             
-ex['precursor_ncdf'] = [[ex['vars'][0][0], 
-                    '{}_1979-2017_1_12_daily_2.5deg.nc'.format(ex['vars'][0][0])]] 
 
 RV = functions_pp.Var_import_RV_netcdf(ex)
 ex[ex['vars'][0][0]] = RV
+var_class = functions_pp.Var_import_precursor_netcdf(ex, 0)
+ex[var_class.name] = var_class
 functions_pp.perform_post_processing(ex)
 
 
@@ -109,7 +106,7 @@ US_mask['longitude'] = nor_lon
 #US_mask['latitude'] = nor_lat
 plotting.xarray_mask_plot(US_mask)
 #%%
-# select RV period for spatial clustering
+# select RV period for temporal clustering
 RV.arrRVperiod = marray.isel(time=ex['RV_period'])
 print('length of RV period {}'.format(RV.arrRVperiod.time.size))
 RV.binarytocluster = functions.Mckin_timeseries(RV.arrRVperiod, RV)
@@ -129,20 +126,14 @@ ex['distmetric'] = 'jaccard'
 ex['clusmethod'] = methods[1] ; ex['linkage'] = linkage ; region='U.S.'
 
 #%%
-#n_clusters = [2, 3, 4, 5, 6, 7, 8, 9]
-#for n in n_clusters:
-#    output = functions.clustering_spatial(RV.binarytocluster, ex, n, region)
+n_clusters = [2, 3, 4, 5, 6, 7, 8, 9]
+for n in n_clusters:
+    output = functions.clustering_spatial(RV.binarytocluster, ex, n, region)
 #%% Adding mask of the cluster found by spatial clustering to another netcdf
-    
 # settings for tfreq = 14
-ex['linkage'] = linkage[1]           
+ex['linkage'] = linkage[1]
 data = RV.binarytocluster
-n_clusters = 8
-
-# Create name for spatial clustering
-name_spcl = ex['linkage'][:4] + ex['clusmethod'][:4] + ex['distmetric'][:4] + \
-            '_tf' + str(ex['tfreq']) + '_n{}'.format(n_clusters)
-
+n_clusters =8
 # Create mask of cluster
 output = functions.clustering_spatial(RV.binarytocluster, ex, n_clusters, region)
 selclus = 1
@@ -151,35 +142,8 @@ selclus = 1
 mask2 = np.array(np.nan_to_num(output.where(output == selclus)), dtype=bool)
 mask1[mask2] = True
 mask = mask1
-
-# reload netcdf you are interested in
-ex['tfreq'] = 1
-
-
-
-var_class = functions_pp.Var_import_precursor_netcdf(ex, 0)
-ex[var_class.name] = var_class
-functions_pp.perform_post_processing(ex)
-
-
 print('adding mask to 3d array, with time matching the RV period')
 RV.arrRVperiod.coords['mask'] = (('latitude','longitude'), mask)
-
-
-# =============================================================================
-# Cluster is now found for certain tfreq, now choose where to add this mask to:
-# =============================================================================
-
-
-
-#RV_period = []
-#for mon in ex['RV_months']:
-#    # append the indices of each year corresponding to your RV period
-#    RV_period.insert(-1, np.where(RV.dates.month == mon)[0] )
-#RV_period = [x for sublist in RV_period for x in sublist]
-#RV_period.sort()
-#ex['RV_period'] = RV_period
-#RV.datesRV = RV.dates[RV_period]
 
 def add_mask_to_ncdf(file_name, mask, ex):
     # =============================================================================
@@ -225,16 +189,19 @@ def add_mask_to_ncdf(file_name, mask, ex):
     RVts = RVfullts.isel(time=new_RV_period)
     return RV_array, RVfullts, RVts, new_RV_period
 
+# make tmax RV:
+#RV_array, RVfullts, RVts, new_RV_period = add_mask_to_ncdf(RV.filename_pp, mask, ex)
 
-#%% 
-# =============================================================================
-# Perform temporal clustering over entire RV period using var_class variable
-# =============================================================================
+
+
+#%%
+#ex['RVnc_name'] = [ex['vars'][0][0], '{}_1979-2017_1_12_daily_2.5deg.nc'.format(ex['vars'][0][0])]
+
 CT_array, CTfullts, CTts, new_RV_period = add_mask_to_ncdf(var_class.filename_pp, mask, ex)
-var_class.arrRVperiod = CT_array.isel(time=new_RV_period)
 
 var = var_class.name ; tfreq = ex['tfreq']
-var_class.arrRVperiod.attrs['units'] = '...'
+CT_array.attrs['units'] = '...'
+CT_data = CT_array.isel(time=new_RV_period)
 cls = ex[ ex['vars'][0][1] ]
 # settings clustering
 n_clusters = 4
@@ -242,127 +209,65 @@ region = 'U.S.wide'
 ex['clusmethod'] = methods[1]
 linkage = ['complete', 'average']
 ex['linkage'] = linkage[0]
-CT_data_norm = var_class.arrRVperiod / var_class.arrRVperiod.std()
+CT_data_norm = CT_data / CT_data.std()
 CT_data_norm.name = 'allts_' + var
 CT_data_norm.attrs['units'] = 'std'
-ex['folder'] = os.path.join(ex['fig_path'],'Clustering_temporal',
-                              '{}_{}_{}deg_tfreq{}'.format(RV.name, var_class.name,
-                               ex['grid_res'],ex['tfreq']))
 output = functions.clustering_temporal(CT_data_norm, ex, n_clusters, RV, tfreq, region=region)
-
 #t_meanplot = plotting.find_region(tmaxRVperiod.drop('mask'), region=region)[0].mean(dim='time')
 #plotting.xarray_plot(t_meanplot )
                                        
-#%% 
-# =============================================================================
-# Temporal clustering of n hottest days
-# =============================================================================
-# For this, we need to lead also the RV variable on the same temporal frequency,
-# while still using the mask that was discoverd with the original ex['tfreq'].
-
-
-# load RV on same temporal frequency as var_class:
-
-RV = functions_pp.Var_import_RV_netcdf(ex)
-ex[ex['vars'][0][0]] = RV
-functions_pp.perform_post_processing(ex)
-
-# import array
-marray, temperature = functions.import_array(RV, path='pp')
-print('length of total time series: {}'.format(marray.time.size))
-
-
-# get RV period over the same months
-
-RV_period = []
-for mon in ex['RV_months']:
-    # append the indices of each year corresponding to your RV period
-    RV_period.insert(-1, np.where(RV.dates.month == mon)[0] )
-RV_period = [x for sublist in RV_period for x in sublist]
-RV_period.sort()
-ex['RV_period'] = RV_period
-RV.datesRV = RV.dates[RV_period]
-
-# select RVperiod:
-
-RV.arrRVperiod = marray.isel(time=ex['RV_period'])
-print('length of RV period {}'.format(RV.arrRVperiod.time.size))
-
-# Add mask that was found with spatial clustering on original ex['tfreq']
-
-RV_array, RVfullts, RVts, new_RV_period = add_mask_to_ncdf(RV.filename_pp, mask, ex)
-RV.arrRVperiod = RV_array.isel(time=new_RV_period)
-
-# Getting hottest n days of RV variable
-n_hot = int(0.15 * RV.arrRVperiod.time.size) # 15 % hottest
-
-
-RV_ts = RV.arrRVperiod.where(RV.arrRVperiod.mask).mean(dim=('latitude', 'longitude'))
-ex['hotdaythres'] = RV_ts.mean(dim='time').values + RV_ts.std().values
-eventdays = RV_ts.where( RV_ts.values > ex['hotdaythres'] ) 
-eventdays = eventdays.dropna(how='all', dim='time').time
-# converting to same hours
-dt_hours = eventdays[0].dt.hour - var_class.arrRVperiod.time[0].dt.hour
-
-
-# =============================================================================
-# now clustering var_class during n_hottest days of RV
-# =============================================================================
-
-# Add mask again to var_class to ensure same timesteps
-CT_array, CTfullts, CTts, new_RV_period = add_mask_to_ncdf(var_class.filename_pp, mask, ex)
-var_class.arrRVperiod = CT_array.isel(time=new_RV_period)
-
-var_class.arrRVperiod.name = '{}hottest_{}_CT_{}_tf{}'.format(n_hot, RV.name, var_class.name, ex['tfreq'])
+#%% Temporal clustering of n shottest days
+n_hot = 30
 n_tempclusters = 4
-CT_corr_dates = eventdays - pd.Timedelta(int(dt_hours), unit='h')
+CT_data.name = '{}hottest_{}_tf{}{}_tf{}{}'.format(n_hot, RV.name, ex['tfreq'], var_class.name, tfreq, var)
+t_spatmean = RV.arrRVperiod.where(RV.arrRVperiod.mask).mean(dim=('latitude', 'longitude'))
+t_std = t_spatmean.std()
+# get most anomalous RV.arrRVperiod days
+idx = t_spatmean.argsort().squeeze().values
+t_sorted = t_spatmean.isel(time=idx).squeeze()
+t_corr_dates = t_sorted[-n_hot:].time
+# converting to same hours
+dt_hours = t_corr_dates[0].dt.hour - data.time[0].dt.hour
+CT_corr_dates = t_corr_dates - pd.Timedelta(int(dt_hours), unit='h')
 CT_hottest = CT_array.sel(time=CT_corr_dates.values)
 CT_std = CT_array.std()
 CT_hot_norm = CT_hottest / CT_std
 CT_hot_norm.attrs['units'] = 'std'
-
-
 output = functions.clustering_temporal(CT_hot_norm, ex, n_tempclusters, RV, tfreq, region=region)
 
-
-if os.path.isdir(ex['folder']) == False : os.makedirs(ex['folder'])
-RV.comp = RV.arrRVperiod.sel(time=eventdays.values)
-RV.compmean = plotting.find_region(RV.comp.drop('mask'), region=region)[0].mean(dim='time')
-RV.compmean_norm = RV.compmean / RV.comp.std()
-RV.compmean_norm.name = '{}hottest_{}_{}'.format(n_hot, RV.name, region)
-plotting.xarray_plot(RV.compmean_norm, path=ex['folder'], saving=True)
+folder = os.path.join(ex['fig_path'],'Clustering_temporal',
+                              '{}_{}_{}deg_tfreq{}'.format(RV.name, var_class.name,
+                               ex['grid_res'],ex['tfreq']))
+if os.path.isdir(folder) == False : os.makedirs(folder)
+t_hottest = RV.arrRVperiod.sel(time=t_corr_dates.values)
+t_meanplot = plotting.find_region(t_hottest.drop('mask'), region=region)[0].mean(dim='time')
+t_meanplot_norm = t_meanplot / t_std
+t_meanplot_norm.name = '{}hottest_{}_{}'.format(n_hot, RV.name, region)
+plotting.xarray_plot(t_meanplot_norm, path=folder, saving=True)
 CT_meanplot = plotting.find_region(CT_hottest.drop('mask'), region=region)[0].mean(dim='time')
 CT_meanplot_norm = CT_meanplot / CT_std
 CT_meanplot_norm.name = '{}hottest_{}_{}'.format(n_hot, var, region)
-plotting.xarray_plot(CT_meanplot_norm, path=ex['folder'], saving=True)
+plotting.xarray_plot(CT_meanplot_norm, path=folder, saving=True)
                                        
 #%%
-
-output_dic_folder = os.path.join(ex['fig_path'], 'RVts2.5')
-filename = RV.name +'_'+ str(ex['startyear']) +'-'+ str(ex['endyear']) \
-               +'_'+ name_spcl + '__to_{}'.format(var_class.name)
-               
-                
 months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',
                 7:'jul',8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
-dates_name = '{}{}-{}{}_'.format(var_class.dates[0].day, months[var_class.dates.month[0]], 
-                 var_class.dates[-1].day, months[var_class.dates.month[-1]] )
+RV_name_range = '{}{}-{}{}_'.format(RV.dates[0].day, months[RV.dates.month[0]], 
+                 RV.dates[-1].day, months[RV.dates.month[-1]] )
 
-
-if os.path.isdir(output_dic_folder) != True : os.makedirs(output_dic_folder)
+ex['path_exp_periodmask'] = os.path.join(RV.base_path, ex['exp_pp'], 
+                              RV_name_range + ex['linkage'][:4] + ex['clusmethod'][:4] + 
+                              ex['distmetric'][:4])
+if os.path.isdir(ex['path_exp_periodmask']) != True : os.makedirs(ex['path_exp_periodmask'])
+filename = str( RV.name +'_'+ str(ex['startyear']) +'-'+ str(ex['endyear']) +'_'+
+               ex['path_exp_periodmask'].split('/')[-1] 
+                + '_tf{}_n{}'.format(ex['tfreq'], n_clusters) )
 to_dict = dict( {'RVfullts' : CTfullts,
                 'clusterout': output,
                 'selclus'   : selclus,
                 'RV_array'  : CT_array   } )
-np.save(os.path.join(output_dic_folder, filename+'.npy'), to_dict)
-
-
-
-
-# Depricated
-
-
-#np.save(os.path.join(ex['path_exp_periodmask'], 'input_tig_dic.npy'), ex)
+np.save(os.path.join(ex['path_pp'],'RVts2.5',filename+'.npy'), to_dict)
+np.save(os.path.join(ex['path_exp_periodmask'], 'input_tig_dic.npy'), ex)
 
 
 #pickle.dump(file_path, 'wb')
@@ -370,6 +275,9 @@ np.save(os.path.join(output_dic_folder, filename+'.npy'), to_dict)
 #    with open(name + '.pkl', 'wb') as f:
 #        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 #save_obj(to_dict, os.path.join(ex['path_pp'],'RVts',filename))
+
+
+# Depricated
 
 #%% clustering temporal
 #output = functions.clustering_temporal(marray, ex['clusmethod'], ex['linkage'], n_clusters, RV, region='U.S.', RV_period=ex['RV_period'])
